@@ -24,7 +24,7 @@
   font-weight: 500;
   font-style: italic;
   line-height: 1.5;
-  color: #f1f3fb;
+  color: #f4f8f6;
   max-width: 180px;
   margin: 4px auto 0;
 }
@@ -58,11 +58,11 @@
 .field > label,
 .field > legend {
   font-size: 14px;
-  color: #485572;
+  color: #4e6c5d;
 }
 .field > small,
 .section-heading p {
-  color: #748098;
+  color: #769686;
 }
 .product-choice {
   font-size: 13px;
@@ -88,18 +88,18 @@
 .page-header p,
 .directory-intro p {
   font-size: 15px;
-  color: #748098;
+  color: #769686;
 }
 .panel-heading p {
   font-size: 14px;
-  color: #748098;
+  color: #769686;
 }
 .empty-state p {
   font-size: 14px;
-  color: #7b879d;
+  color: #7d9b8c;
 }
 .empty-state h3 {
-  color: #526585;
+  color: #597e6c;
 }
 .search-input input,
 .search-input input::placeholder {
@@ -116,10 +116,10 @@
   font-size: 12px;
 }
 .metric-accent > div > span {
-  color: #c0c8df;
+  color: #c5dad0;
 }
 .metric-accent > small {
-  color: #a5b2cf;
+  color: #acc8ba;
 }
 .product-chart-row > button {
   font-size: 12px;
@@ -138,7 +138,7 @@
   font-size: 13px;
 }
 .local-notice {
-  color: #707d97;
+  color: #739484;
 }
 .local-notice p {
   font-size: 13px;
@@ -146,11 +146,11 @@
 .product-legend,
 .chart-legend {
   font-size: 12px;
-  color: #6c7b97;
+  color: #719282;
 }
 .field-note {
   font-size: 13px;
-  color: #7c8aa3;
+  color: #819e90;
 }
 .contact-options > button {
   min-height: 43px;
