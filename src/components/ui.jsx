@@ -30,6 +30,7 @@ const paths = {
   logout: "M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5 M15.5 16.5 20 12l-4.5-4.5 M20 12H9.5",
   upload: "M12 15V4 M7.5 8.5 12 4l4.5 4.5 M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3",
   arrow: "M5 12h14 M13 6l6 6-6 6",
+  copy: "M9 9h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9Z M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3",
 };
 export function Icon({ name, size = 20, ...props }) {
   return (

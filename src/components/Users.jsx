@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { listMembers, manageUsers } from "../lib/cloud.mjs";
-import { PASSWORD_MAX, PASSWORD_MIN, editUserDraft, newUserDraft, temporaryPassword, validateNewUser, validateUserEdit } from "../lib/users.mjs";
+import { PASSWORD_MAX, PASSWORD_MIN, credentialsText, editUserDraft, newUserDraft, temporaryPassword, validateNewUser, validateUserEdit } from "../lib/users.mjs";
 import { Badge, Empty, Field, Icon, Modal, PageHeader, Summary } from "./ui.jsx";
 import "../products.css";
 import "../users.css";
@@ -82,14 +82,7 @@ function UserForm({ initial, self, onClose, onSaved, onDelete }) {
     } catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
   };
-  if (done) return <Modal title={editing ? "Senha redefinida" : "Usuário criado"} onClose={onClose}>
-    <p>Passe estes dados para <strong>{done.name}</strong>. No próximo acesso, o sistema pedirá uma senha nova.</p>
-    <dl className="users-credentials">
-      <dt>Login</dt><dd>{done.login}</dd>
-      <dt>Senha temporária</dt><dd>{done.password}</dd>
-    </dl>
-    <footer className="modal-actions"><button className="button primary" onClick={onClose}>Concluir</button></footer>
-  </Modal>;
+  if (done) return <Credentials title={editing ? "Senha redefinida" : "Usuário criado"} user={done} onClose={onClose} />;
   const passwordField = <div className="users-password-row">
     <Field label={editing ? "Nova senha temporária" : "Senha temporária"} value={draft.password} onChange={field("password")} required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
       autoComplete="new-password" spellCheck={false} hint={`Mínimo de ${PASSWORD_MIN} caracteres. A pessoa troca no ${editing ? "próximo" : "primeiro"} acesso.`} />
@@ -119,6 +112,51 @@ function UserForm({ initial, self, onClose, onSaved, onDelete }) {
         <button className="button primary" disabled={busy}>{busy ? "Salvando…" : editing ? "Salvar alterações" : "Criar usuário"}</button>
       </footer>
     </form>
+  </Modal>;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    // Alternativa para navegadores que bloqueiam a área de transferência.
+    const area = Object.assign(document.createElement("textarea"), { value: text });
+    area.setAttribute("readonly", "");
+    Object.assign(area.style, { position: "fixed", opacity: "0" });
+    document.querySelector("dialog[open]")?.append(area) ?? document.body.append(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  }
+}
+
+function Credentials({ title, user, onClose }) {
+  const [status, setStatus] = useState("");
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = async () => {
+    const ok = await copyText(credentialsText(user));
+    setStatus(ok ? "copied" : "failed");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setStatus(""), 2500);
+  };
+  return <Modal title={title} onClose={onClose}>
+    <p>Passe estes dados para <strong>{user.name}</strong>. No próximo acesso, o sistema pedirá uma senha nova.</p>
+    <div className="users-credentials-box">
+      <dl className="users-credentials">
+        <dt>Login</dt><dd>{user.login}</dd>
+        <dt>Senha temporária</dt><dd>{user.password}</dd>
+      </dl>
+      <button type="button" className={`icon-button users-copy ${status}`} onClick={copy}
+        aria-label={status === "copied" ? "Login e senha copiados" : "Copiar login e senha"} title={status === "copied" ? "Copiado" : "Copiar login e senha"}>
+        <Icon name={status === "copied" ? "check" : "copy"} size={18} />
+      </button>
+    </div>
+    <p className="visually-hidden" role="status">{status === "copied" ? "Login e senha copiados." : ""}</p>
+    {status === "failed" && <p className="error" role="alert">Não foi possível copiar. Selecione o login e a senha e copie manualmente.</p>}
+    <footer className="modal-actions">
+      <button className="button primary" onClick={onClose}>Concluir</button>
+    </footer>
   </Modal>;
 }
 

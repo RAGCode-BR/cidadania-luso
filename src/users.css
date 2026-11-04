@@ -8,7 +8,12 @@
 .users-admin-option span { display: grid; gap: 2px; }
 .users-admin-option strong { color: var(--ink); font-size: 15px; }
 .users-admin-option small { color: var(--muted); font-size: 14px; }
-.users-credentials { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 20px; align-items: baseline; margin: 16px 24px 0; padding: 16px 18px; border-radius: var(--radius); background: var(--green-soft); }
+.users-credentials-box { position: relative; margin-top: 16px; }
+.users-credentials { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 20px; align-items: baseline; margin: 0; padding: 16px 56px 16px 18px; border-radius: var(--radius); background: var(--green-soft); }
+.users-copy { position: absolute; top: 10px; right: 10px; color: var(--green); }
+.users-copy:hover:not(:disabled) { background: var(--white); }
+.users-copy.copied { color: var(--flag-green); background: var(--white); }
+.users-credentials-box + .visually-hidden + .error { margin-top: 12px; }
 .users-credentials dt { color: var(--muted); font-size: 14px; }
 /* Senha temporária em fonte monoespaçada para distinguir caracteres parecidos. */
 .users-credentials dd { margin: 0; color: var(--green); font-size: 18px; font-weight: 700; font-family: ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
@@ -17,6 +22,5 @@
 @media (max-width: 760px) {
   .users-password-row { grid-template-columns: minmax(0, 1fr); }
   .users-password-row > .button { margin: -6px 0 16px; justify-self: start; }
-  .users-credentials { margin: 16px 16px 0; }
   .modal-actions .button.users-delete-link { flex-basis: 100%; order: 3; }
 }

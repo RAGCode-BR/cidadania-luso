@@ -38,6 +38,9 @@ export function validatePasswordChange(password, confirmation) {
   return password;
 }
 
+// Texto copiado para enviar à pessoa (WhatsApp, e-mail…).
+export const credentialsText = ({ login, password }) => `Login - ${login}\nSenha temporária - ${password}`;
+
 // Senha temporária legível: sem 0/O, 1/l/I para evitar erro ao digitar.
 const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export function temporaryPassword(length = 10) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { editUserDraft, temporaryPassword, validateNewUser, validatePasswordChange, validateUserEdit } from "../src/lib/users.mjs";
+import { credentialsText, editUserDraft, temporaryPassword, validateNewUser, validatePasswordChange, validateUserEdit } from "../src/lib/users.mjs";
 
 globalThis.crypto ||= webcrypto;
 
@@ -34,4 +34,8 @@ test("edição: senha é opcional e, se preenchida, vira nova senha temporária"
   assert.equal(validateUserEdit({ ...draft, password: "novatemp1" }).password, "novatemp1");
   assert.throws(() => validateUserEdit({ ...draft, password: "curta" }), /8 a 72/);
   assert.throws(() => validateUserEdit({ ...draft, login: "a b" }), /login/);
+});
+
+test("texto copiado traz login e senha prontos para enviar", () => {
+  assert.equal(credentialsText({ login: "igormorgado", password: "igor12345" }), "Login - igormorgado\nSenha temporária - igor12345");
 });
