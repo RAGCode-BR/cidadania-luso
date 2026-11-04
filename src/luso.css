@@ -1,11 +1,8 @@
 /* A navegação desta edição tem apenas duas páginas e nunca cobre o quadro. */
 .luso-app .sidebar { width: 206px; overflow: auto; }
 .luso-app .workspace { margin-left: 206px; }
-.luso-brand { position: relative; display: flex; align-items: center; gap: 12px; padding: 34px 22px 42px; color: #fff; }
-.luso-brand::after { content: ""; position: absolute; left: 22px; bottom: 23px; width: 54px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, #39aa72 0 33.33%, #fff 33.33% 66.66%, #c32835 66.66%); }
-.luso-mark { width: 40px; height: 40px; display: grid; place-items: center; border: 2px solid #fff; border-radius: 11px; color: #fff; font-family: Manrope, sans-serif; font-size: 25px; font-weight: 800; }
-.luso-brand strong { display: block; font-family: Manrope, sans-serif; letter-spacing: .14em; font-size: 18px; }
-.luso-brand small { display: block; margin-top: 2px; color: #aac1b6; font-size: 11px; }
+.luso-brand { margin: 20px 12px 30px; padding: 10px 6px; border-radius: 10px; background: #fff; }
+.luso-brand img { display: block; width: 100%; height: auto; }
 .luso-app .sidebar nav { display: grid; gap: 8px; padding: 0 12px; }
 .luso-app .sidebar nav button { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 14px; padding: 10px 16px; color: #aac1b6; border-radius: 8px; text-align: left; background: transparent; }
 .luso-app .sidebar nav button span { visibility: visible; white-space: nowrap; }
@@ -17,9 +14,7 @@
 .luso-startup { min-height: 100vh; display: grid; place-content: center; gap: 15px; padding: 30px; text-align: center; }
 .luso-login-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--brand-green); }
 .luso-login-card { width: min(430px, 100%); padding: 38px; border-radius: 16px; background: #fff; box-shadow: 0 18px 56px #07291d40; }
-.luso-login-brand { display: flex; align-items: center; gap: 12px; color: var(--brand-green); font-family: Manrope, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: .12em; }
-.luso-login-brand .luso-mark { width: 38px; height: 38px; border-color: var(--brand-green); color: var(--brand-green); font-size: 23px; }
-.luso-login-stripe { width: 64px; height: 4px; margin: 20px 0 28px; border-radius: 2px; background: linear-gradient(90deg, #188253 0 33.33%, #e8eeeb 33.33% 66.66%, var(--brand-red) 66.66%); }
+.luso-login-logo { display: block; width: 100%; height: auto; margin-bottom: 28px; }
 .luso-login-card h1 { font-size: 27px; }
 .luso-login-card > p { margin: 8px 0 26px; color: #526d5d; }
 .luso-login-form { display: grid; gap: 18px; }

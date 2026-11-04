@@ -13,6 +13,7 @@ import "./readability.css";
 import "./luso.css";
 
 const localActor = { role: "admin", teamId: "equipe", name: "Equipe Luso" };
+const logoUrl = `${import.meta.env.BASE_URL}luso-logo.png`;
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -145,7 +146,7 @@ function App() {
   return <div className="app-shell luso-app">
     <a href="#main-content" className="skip-link">Ir para o conteúdo</a>
     <aside className={`sidebar ${mobileMenu ? "open" : ""}`} aria-label="Navegação principal">
-      <div className="luso-brand"><span className="luso-mark">L</span><div><strong>LUSO</strong><small>CRM & Serviços</small></div></div>
+      <div className="luso-brand"><img src={logoUrl} alt="Cidadania Luso Italiana Assessoria" /></div>
       <nav aria-label="Navegação principal">
         <button className={page === "crm" ? "active" : ""} onClick={() => navigate("crm")}><Icon name="kanban" /><span>CRM</span></button>
         <button className={page === "services" ? "active" : ""} onClick={() => navigate("services")}><Icon name="tools" /><span>Serviços</span></button>
@@ -180,8 +181,7 @@ function Login() {
     finally { setBusy(false); }
   };
   return <main className="luso-login-screen"><div className="luso-login-card">
-    <div className="luso-login-brand"><span className="luso-mark">L</span><strong>LUSO</strong></div>
-    <div className="luso-login-stripe" aria-hidden="true" />
+    <img className="luso-login-logo" src={logoUrl} alt="Cidadania Luso Italiana Assessoria" />
     <h1>Acesse sua conta</h1><p>Entre para acompanhar o CRM e os serviços da Luso.</p>
     <form onSubmit={submit} className="luso-login-form">
       <Field label="E-mail" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
