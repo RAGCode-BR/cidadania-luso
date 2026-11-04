@@ -14,8 +14,6 @@
 .luso-local-badge { border: 1px solid #e2e6ee; border-radius: 20px; padding: 7px 12px; font-size: 11px; color: #5d6b83; white-space: nowrap; }
 .luso-menu-backdrop { display: none; }
 .luso-startup { min-height: 100vh; display: grid; place-content: center; gap: 15px; padding: 30px; text-align: center; }
-.luso-login { width: min(380px, calc(100vw - 40px)); display: grid; gap: 16px; text-align: left; }
-.luso-login .button { justify-content: center; }
 .luso-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .luso-tools .button { white-space: nowrap; }
 .luso-import { cursor: pointer; }
