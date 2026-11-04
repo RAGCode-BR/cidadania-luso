@@ -68,9 +68,23 @@ A página **Produtos** cadastra, edita e exclui os produtos oferecidos aos clien
 
 As oportunidades guardam o nome do produto. Renomear um produto atualiza os cartões do CRM; vendas, atendimentos e o histórico mantêm o nome da época. Excluir um produto apenas o retira do cadastro e da seleção de novos cartões: os cartões que já o citam continuam com ele. Recadastrar o mesmo nome reativa o produto excluído.
 
-## GitHub e publicação
+## Publicação na Cloudflare
 
-`.env.local`, `node_modules`, `dist` e resultados de teste são ignorados pelo Git. O workflow em `.github/workflows/ci.yml` executa testes e build em cada push e pull request. Configure as variáveis `VITE_` no serviço de hospedagem. Se usar GitHub Pages em um repositório de projeto, defina `VITE_BASE_PATH=/<nome-do-repositorio>/` no build. O GitHub hospeda o frontend; banco e autenticação ficam no Supabase. A chave publishable estará visível no JavaScript, como previsto; as políticas do banco e a função de gravação exigem membro autenticado.
+A Luso é publicada como **Cloudflare Worker com arquivos estáticos**, ligado ao repositório do GitHub: cada push na `main` gera o build e publica. A configuração está em [wrangler.jsonc](wrangler.jsonc) (pasta `dist`) e os cabeçalhos de segurança e cache em [public/_headers](public/_headers).
+
+Primeira publicação, no painel da Cloudflare:
+
+1. **Workers & Pages → Create → Import a repository** e escolha `RAGCode-BR/cidadania-luso` (autorize o app da Cloudflare no GitHub, se pedido).
+2. Confira os comandos: **Build command** `npm run build` e **Deploy command** `npx wrangler deploy`. Branch de produção: `main`.
+3. Em **Build variables** (ou depois em *Settings → Build → Variables and secrets*), cadastre `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` com os mesmos valores do `.env.local`. Elas entram no JavaScript durante o build; sem elas o site abre no modo local, sem login. Use apenas a chave **publishable**.
+4. Clique em **Deploy**. O endereço fica em `https://cidadania-luso.<sua-conta>.workers.dev`; um domínio próprio pode ser ligado em *Settings → Domains & Routes*.
+5. No Supabase, em **Authentication → URL Configuration**, troque o **Site URL** pelo endereço publicado.
+
+Para testar localmente exatamente como a Cloudflare serve (com os cabeçalhos de segurança): `npm run preview:cloudflare` e abra <http://127.0.0.1:8788/>. Para publicar a partir desta máquina, sem o GitHub: `npx wrangler login` e depois `npm run deploy`.
+
+A política de segurança (CSP) só permite carregar código do próprio site, a fonte do Google Fonts e conexões com `*.supabase.co`. Se um dia incluir outro serviço externo, acrescente o domínio em `public/_headers`.
+
+O workflow em `.github/workflows/ci.yml` continua rodando testes e build em cada push e pull request. `.env.local`, `node_modules`, `dist`, `.wrangler` e resultados de teste são ignorados pelo Git. A chave publishable fica visível no JavaScript publicado, como previsto: o acesso aos dados depende de login e do cadastro em `luso_members`.
 
 ## Limites atuais
 

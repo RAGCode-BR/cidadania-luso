@@ -1,0 +1,13 @@
+// Publicação na Cloudflare (Workers com arquivos estáticos).
+// O build (npm run build) gera ./dist; a Cloudflare serve essa pasta.
+// As variáveis VITE_SUPABASE_* entram no build: configure-as em
+// Settings → Build → Variables and secrets do Worker.
+{
+  "name": "cidadania-luso",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": { "enabled": true }
+}
