@@ -17,7 +17,7 @@ create table if not exists public.luso_workspace (
 );
 alter table public.luso_workspace add column if not exists updated_by uuid references auth.users(id);
 
-insert into public.luso_workspace (id, state) values (1, '{"version":1,"products":[],"works":[],"visits":[],"crm":{"opportunities":[],"activities":[],"sales":[],"visitLinks":[],"stageLabels":{"prospecting":"Em prospecção","waiting":"Aguardando retorno","negotiating":"Em negociação","won":"Venda realizada","lost":"Sem negócio"},"stageOrder":["prospecting","waiting","negotiating","won","lost"]},"services":[],"installers":[],"serviceDecisions":{},"nextInstallationNumber":1}'::jsonb)
+insert into public.luso_workspace (id, state) values (1, '{"version":2,"products":[],"attendances":[],"crm":{"opportunities":[],"activities":[],"sales":[],"stageLabels":{"prospecting":"Em prospecção","waiting":"Aguardando retorno","negotiating":"Em negociação","won":"Venda realizada","lost":"Sem negócio"},"stageOrder":["prospecting","waiting","negotiating","won","lost"]}}'::jsonb)
 on conflict (id) do nothing;
 
 alter table public.luso_members enable row level security;
@@ -84,3 +84,31 @@ begin
     alter publication supabase_realtime add table public.luso_workspace;
   end if;
 end $$;
+
+-- Gestão de usuários: administradores criam e excluem contas pela página Usuários
+-- (Edge Function luso-users). Contas novas recebem senha temporária e precisam
+-- definir a própria senha no primeiro acesso.
+alter table public.luso_members add column if not exists login text;
+alter table public.luso_members add column if not exists is_admin boolean not null default false;
+alter table public.luso_members add column if not exists must_change_password boolean not null default false;
+update public.luso_members m set login = split_part(u.email, '@', 1)
+  from auth.users u where u.id = m.user_id and m.login is null;
+
+create or replace function public.luso_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.luso_members
+    where user_id = (select auth.uid()) and active and is_admin
+  );
+$$;
+revoke all on function public.luso_is_admin() from public, anon;
+grant execute on function public.luso_is_admin() to authenticated;
+
+drop policy if exists "Administradores consultam a equipe" on public.luso_members;
+create policy "Administradores consultam a equipe" on public.luso_members
+  for select to authenticated using ((select public.luso_is_admin()));

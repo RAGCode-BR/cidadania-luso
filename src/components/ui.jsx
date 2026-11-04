@@ -1,39 +1,35 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 
+// Ícones em grade de 24px, traço único de 1,75px e cantos arredondados.
 const paths = {
-  tools: "M14 6a5 5 0 0 0-6 6L3 17a3 3 0 0 0 4 4l5-5a5 5 0 0 0 6-6l-3 3-4-4 3-3Z",
   kanban:
-    "M3 4h18v16H3z M9 4v16 M15 4v16 M5 8h2 M11 8h2 M17 8h2 M5 12h2 M11 12h2",
-  plus: "M12 5v14 M5 12h14",
-  visit:
-    "M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
-  calendar:
-    "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z M7 14h2 M12 14h2 M7 18h2",
-  building:
-    "M3 21h18 M5 21V5l10-3v19 M15 9h4v12 M8 7h3 M8 11h3 M8 15h3 M8 19h3",
+    "M4.5 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z M10.5 4h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z M16.5 4h3a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z",
+  passport:
+    "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M12 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z M9 16.5h6",
   users:
-    "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z M18 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87",
-  chart: "M3 3v18h18 M7 16v-5 M12 16V7 M17 16v-9",
-  box: "m12 3 9 5v9l-9 5-9-5V8l9-5Z m-9 5 9 5 9-5 M12 13v9 M7.5 5.5l9 5",
-  arrow: "M5 12h14 M13 6l6 6-6 6",
-  check: "m5 12 4 4L19 6",
-  camera:
-    "M14.5 4h-5L7 7H3v13h18V7h-4l-2.5-3Z M12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z",
-  search: "M21 21l-5-5 M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z",
+    "M15.5 20v-1.5a3.5 3.5 0 0 0-3.5-3.5H7a3.5 3.5 0 0 0-3.5 3.5V20 M9.5 4a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z M16.5 4.3a3.5 3.5 0 0 1 0 6.4 M20.5 20v-1.5a3.5 3.5 0 0 0-2.6-3.4",
+  message:
+    "M5 4.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5v-3.5H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z M7.5 9h9 M7.5 12h5.5",
+  plus: "M12 5v14 M5 12h14",
+  check: "m5 12.5 4.5 4.5L19 7.5",
+  search: "M20 20l-4.3-4.3 M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z",
   chevron: "m9 5 7 7-7 7",
-  down: "m6 9 6 6 6-6",
-  close: "m6 6 12 12 M6 18 18 6",
-  menu: "M4 6h16 M4 12h16 M4 18h16",
-  reorder: "M4 7h16 M4 12h16 M4 17h16 M8 4l-3 3 3 3 M16 14l3 3-3 3",
-  "move-up": "M12 19V5 M6 11l6-6 6 6",
-  "move-down": "M12 5v14 M6 13l6 6 6-6",
-  grip: "M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01",
-  trend: "m3 17 6-6 4 4 8-10 M15 5h6v6",
-  clock: "M12 8v5l3 2 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z",
-  edit: "m16 3 5 5-12 12-6 1 1-6L16 3Z m-2 2 5 5",
-  trash: "M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7",
-  phone: "m5 3 4 4-2 3a16 16 0 0 0 7 7l3-2 4 4c-1 5-7 3-12-1S1 5 5 3Z",
+  close: "m6.5 6.5 11 11 M6.5 17.5l11-11",
+  menu: "M4 7h16 M4 12h16 M4 17h16",
+  reorder: "M7.5 20V4 M4 7.5 7.5 4 11 7.5 M16.5 4v16 M13 16.5l3.5 3.5 3.5-3.5",
+  "move-up": "M12 19V5 M6.5 10.5 12 5l5.5 5.5",
+  "move-down": "M12 5v14 M6.5 13.5 12 19l5.5-5.5",
+  grip: "M9 5.5h.01 M15 5.5h.01 M9 12h.01 M15 12h.01 M9 18.5h.01 M15 18.5h.01",
+  clock: "M12 7.5V12l3 2 M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
+  edit: "M4 20h4.5L19.3 9.2a2.5 2.5 0 0 0-3.5-3.5L5 16.5V20Z M14 7.5l3.5 3.5",
+  trash: "M4 7h16 M9.5 7V4.5h5V7 M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12 M10 11v6 M14 11v6",
+  phone:
+    "M6.5 4h2.6l1.6 4.2-2.1 1.3a11 11 0 0 0 5.9 5.9l1.3-2.1 4.2 1.6v2.6a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4Z",
+  mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z M3.5 7.5 12 13l8.5-5.5",
+  logout: "M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5 M15.5 16.5 20 12l-4.5-4.5 M20 12H9.5",
+  upload: "M12 15V4 M7.5 8.5 12 4l4.5 4.5 M4.5 15v3a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-3",
+  arrow: "M5 12h14 M13 6l6 6-6 6",
 };
 export function Icon({ name, size = 20, ...props }) {
   return (
@@ -43,30 +39,32 @@ export function Icon({ name, size = 20, ...props }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      focusable="false"
       {...props}
     >
-      <path d={paths[name] || paths.box} />
+      <path d={paths[name] || paths.kanban} />
     </svg>
   );
 }
 export function Field({ label, hint, children, className = "", ...props }) {
   const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div className={`field ${className}`}>
       <label htmlFor={id}>
         {label}
-        {props.required && <span className="required"> *</span>}
+        {props.required && <span className="required" aria-hidden="true"> *</span>}
       </label>
       {children ? (
-        React.cloneElement(children, { id })
+        React.cloneElement(children, { id, "aria-describedby": hintId })
       ) : (
-        <input id={id} {...props} />
+        <input id={id} aria-describedby={hintId} {...props} />
       )}
-      {hint && <small>{hint}</small>}
+      {hint && <small id={hintId}>{hint}</small>}
     </div>
   );
 }
@@ -79,7 +77,7 @@ export function Select({
   ...props
 }) {
   return (
-    <Field label={label} required={required}>
+    <Field label={label} required={required} className="field-select">
       <select
         required={required}
         value={value}
@@ -91,41 +89,46 @@ export function Select({
     </Field>
   );
 }
+// Cabeçalho de página: título curto e ações na mesma linha.
+export function PageHeader({ title, note, children }) {
+  return (
+    <header className="page-header">
+      <div className="page-heading">
+        <h1>{title}</h1>
+        {note && <p>{note}</p>}
+      </div>
+      {children && <div className="page-actions">{children}</div>}
+    </header>
+  );
+}
+// Resumo numérico da página em uma única faixa.
+export function Summary({ label, items }) {
+  return (
+    <dl className="summary" aria-label={label}>
+      {items.map((item) => (
+        <div key={item.label} className={`summary-item ${item.tone || ""}`}>
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 export function Empty({
-  title = "Tudo começa com a primeira visita",
-  description = "Os registros aparecerão aqui conforme você usar o sistema.",
+  title = "Nada por aqui ainda",
+  description = "Os registros aparecem aqui conforme a equipe usa o sistema.",
   action,
-  icon = "building",
+  icon = "kanban",
 }) {
   return (
     <div className="empty-state">
       <span className="empty-icon">
-        <Icon name={icon} size={29} />
+        <Icon name={icon} size={26} />
       </span>
       <h3>{title}</h3>
       <p>{description}</p>
       {action}
     </div>
-  );
-}
-export function Metric({
-  label,
-  value,
-  detail,
-  icon = "chart",
-  accent = false,
-}) {
-  return (
-    <article className={`metric ${accent ? "metric-accent" : ""}`}>
-      <div>
-        <span>{label}</span>
-        <i>
-          <Icon name={icon} />
-        </i>
-      </div>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </article>
   );
 }
 export function Badge({ children, tone = "" }) {
@@ -136,8 +139,14 @@ export function Modal({ title, onClose, children, wide = false }) {
   const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
+    const opener = document.activeElement;
     dialog.showModal();
-    return () => dialog.close();
+    return () => {
+      dialog.close();
+      // Devolve o foco a quem abriu a janela (se ainda existir na tela).
+      if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body)
+        opener.focus({ preventScroll: true });
+    };
   }, []);
   return createPortal(
     <dialog
@@ -153,10 +162,7 @@ export function Modal({ title, onClose, children, wide = false }) {
       }}
     >
       <header>
-        <div>
-          <span className="eyebrow">LUSO</span>
-          <h2 id={titleId}>{title}</h2>
-        </div>
+        <h2 id={titleId}>{title}</h2>
         <button
           className="icon-button"
           type="button"
@@ -169,173 +175,5 @@ export function Modal({ title, onClose, children, wide = false }) {
       {children}
     </dialog>,
     document.body,
-  );
-}
-export function AddressFields({ value, onChange, requireState = true }) {
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-  const request = useRef(0);
-  const pendingCep = useRef("");
-  const lastSuccessfulCep = useRef("");
-  const latest = useRef(value);
-  latest.current = value;
-  useEffect(
-    () => () => {
-      request.current++;
-    },
-    [],
-  );
-  const change = (key) => (event) => {
-    if (
-      key === "cep" &&
-      event.target.value.replace(/\D/g, "") !==
-        latest.current.cep.replace(/\D/g, "")
-    ) {
-      request.current++;
-      pendingCep.current = "";
-      lastSuccessfulCep.current = "";
-      setBusy(false);
-      setStatus("");
-    }
-    onChange({
-      ...latest.current,
-      [key]:
-        key === "state" ? event.target.value.toUpperCase() : event.target.value,
-    });
-  };
-  const lookup = async ({ automatic = false } = {}) => {
-    const cep = latest.current.cep.replace(/\D/g, "");
-    if (cep.length !== 8)
-      return setStatus(
-        "Informe um CEP com 8 dígitos ou preencha o endereço manualmente.",
-      );
-    if (
-      pendingCep.current === cep ||
-      (automatic && lastSuccessfulCep.current === cep)
-    )
-      return;
-    const token = ++request.current;
-    pendingCep.current = cep;
-    setBusy(true);
-    setStatus("");
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) throw new Error();
-      const address = await response.json();
-      if (token !== request.current) return;
-      if (address.erro)
-        return setStatus(
-          "CEP não encontrado. Você pode preencher o endereço manualmente.",
-        );
-      lastSuccessfulCep.current = cep;
-      onChange({
-        ...latest.current,
-        cep: address.cep,
-        street: address.logradouro || "",
-        neighborhood: address.bairro || "",
-        city: address.localidade || "",
-        state: address.uf || "",
-      });
-      setStatus(
-        "Endereço encontrado. Confira o número e o bairro antes de salvar.",
-      );
-    } catch {
-      if (token === request.current)
-        setStatus(
-          "A consulta está indisponível. Preencha o endereço manualmente.",
-        );
-    } finally {
-      if (token === request.current) {
-        pendingCep.current = "";
-        setBusy(false);
-      }
-    }
-  };
-  return (
-    <>
-      <div className="fields address-cep">
-        <Field
-          label="CEP"
-          value={value.cep}
-          onChange={change("cep")}
-          onBlur={() => {
-            if (latest.current.cep.replace(/\D/g, "").length === 8) {
-              void lookup({ automatic: true });
-            }
-          }}
-          placeholder="00000-000"
-          maxLength={9}
-          inputMode="numeric"
-        />
-        <button
-          type="button"
-          className="button secondary lookup"
-          onClick={() => lookup()}
-          disabled={busy}
-        >
-          <Icon name="search" size={17} />
-          {busy ? "Buscando…" : "Buscar endereço"}
-        </button>
-        <span className="field-note">Não sabe o CEP? Preencha abaixo.</span>
-      </div>
-      {status && (
-        <p className="inline-note" role="status">
-          {status}
-        </p>
-      )}
-      <div className="fields street">
-        <Field
-          label="Rua / avenida"
-          value={value.street}
-          onChange={change("street")}
-          placeholder="Endereço da obra"
-          required
-          maxLength={180}
-        />
-        <Field
-          label="Número"
-          value={value.number}
-          onChange={change("number")}
-          placeholder="Nº ou S/N"
-          maxLength={20}
-        />
-      </div>
-      <div className="fields two">
-        <Field
-          label="Bairro"
-          value={value.neighborhood}
-          onChange={change("neighborhood")}
-          required
-          maxLength={100}
-        />
-        <Field
-          label="Complemento / referência"
-          value={value.complement}
-          onChange={change("complement")}
-          placeholder="Bloco, lote, ponto de referência…"
-          maxLength={180}
-        />
-      </div>
-      <div className="fields city">
-        <Field
-          label="Cidade"
-          value={value.city}
-          onChange={change("city")}
-          required
-          maxLength={100}
-        />
-        <Field
-          label="UF"
-          value={value.state}
-          onChange={change("state")}
-          required={requireState}
-          maxLength={2}
-          pattern="[A-Z]{2}"
-          placeholder="UF"
-        />
-      </div>
-    </>
   );
 }

@@ -5,21 +5,21 @@ import {
   crmActiveStageIds,
   crmTimeline,
   emptyCrm,
+  opportunityAttendances,
 } from "../lib/crm.mjs";
 import {
+  ATTENDANCE_CHANNELS,
+  ATTENDANCE_KINDS,
   TEAM,
-  originLabel,
-  addressLabel,
   dateLabel,
   money,
   normalize,
   person,
+  phoneDigits,
   productNames,
   today,
 } from "../lib/domain.mjs";
-import { Badge, Empty, Field, Icon, Metric, Modal, Select } from "./ui.jsx";
-import VisitPhoto from "./VisitPhoto.jsx";
-import { repository } from "../lib/repository.mjs";
+import { Badge, Empty, Field, Icon, Modal, PageHeader, Select, Summary } from "./ui.jsx";
 import Pagination from "./Pagination.jsx";
 import "../crm.css";
 
@@ -34,8 +34,7 @@ export default function Crm({
   onCreate,
   onColumns,
   onLabels,
-  onVisit,
-  onServices,
+  onAttendance,
 }) {
   const crm = data.crm || emptyCrm();
   const labels = { ...CRM_STAGES, ...crm.stageLabels };
@@ -43,7 +42,7 @@ export default function Crm({
   const activeStageIds = crmActiveStageIds(crm);
   const [query, setQuery] = useState("");
   const [responsible, setResponsible] = useState("");
-  const [origin, setOrigin] = useState("");
+  const [product, setProduct] = useState("");
   const [returns, setReturns] = useState("");
   const [mobileStage, setMobileStage] = useState("prospecting");
   const [dialog, setDialog] = useState(null);
@@ -60,29 +59,20 @@ export default function Crm({
   const [view, setView] = useState("board");
   const [closedStage, setClosedStage] = useState("");
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [query, responsible, origin, closedStage, view]);
+  useEffect(() => setPage(1), [query, responsible, product, closedStage, view]);
   useEffect(() => {
     if (!stageOrder.includes(mobileStage)) setMobileStage(stageOrder[0]);
   }, [stageOrder.join("|"), mobileStage]);
   const filtered = crm.opportunities.filter(
     (item) =>
       !item.deleted &&
-      (!origin || (origin === "manual" ? item.source === "manual" : (item.sources?.length ? item.sources : [item.source || "visit"]).includes(origin))) &&
       (!responsible || item.responsibleId === responsible) &&
+      (!product || item.products.includes(product)) &&
       (!returns ||
         (returns === "overdue"
           ? overdue(item)
           : active(item) && item.nextDate === today())) &&
-      normalize(
-        [
-          item.work.name,
-          item.work.responsible,
-          item.work.phone,
-          item.work.neighborhood,
-          item.work.city,
-          ...item.products,
-        ].join(" "),
-      ).includes(normalize(query)),
+      normalize(item.client.name).includes(normalize(query)),
   );
   const archived = filtered
     .filter(
@@ -109,10 +99,17 @@ export default function Crm({
     version = item.version,
   ) => setDialog({ id: item.id, type, stage, version });
   const selected = crm.opportunities.find((item) => item.id === dialog?.id);
-  const visit = (item) => {
+  const attend = (item) => {
     setDialog(null);
-    onVisit(item);
+    onAttendance(item);
   };
+  // Produtos do cadastro e também os que ficaram em cartões após serem excluídos do cadastro.
+  const productFilterOptions = [...new Set([
+    ...productNames(data),
+    ...crm.opportunities.filter((item) => !item.deleted).flatMap((item) => item.products),
+  ])].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const overdueCount = crm.opportunities.filter((item) => !item.deleted && overdue(item)).length;
+  const contacts = (item) => (data.attendances || []).filter((row) => row.opportunityId === item.id).length;
   const dropped = async (event, stage) => {
     event.preventDefault();
     setDrop("");
@@ -145,57 +142,21 @@ export default function Crm({
   };
   return (
     <div className="crm-page">
-      <div className="crm-intro">
-        <div>
-          <span className="crm-shared">
-            <Icon name="users" size={15} />
-            Visão da equipe
-          </span>
-        </div>
-        <div className="crm-intro-actions">
-          <button className="button secondary" onClick={() => setAddingCard(true)}>Adicionar cartão</button>
-          {(!account || account.role === "admin") && (
-            <>
-              <button className="button secondary" onClick={() => setAddingColumn(true)}><Icon name="plus" size={16} />Adicionar coluna</button>
-              <button className="button secondary" onClick={() => setReorderingColumns(true)}><Icon name="reorder" size={16} />Reordenar colunas</button>
-            </>
-          )}
-          <button className="button primary" onClick={() => setAddingCard(true)}><Icon name="plus" size={17} />Nova oportunidade</button>
-        </div>
-      </div>
-      <div className="metrics crm-metrics">
-        <Metric
-          label="Oportunidades abertas"
-          value={crm.opportunities.filter((item) => !item.deleted && active(item)).length}
-          detail="Obras em acompanhamento"
-          icon="building"
-        />
-        <Metric
-          label="Em negociação"
-          value={
-            crm.opportunities.filter((item) => !item.deleted && active(item) &&
-              (item.stage === "negotiating" || item.completedProducts.length))
-              .length
-          }
-          detail="Conversas próximas do fechamento"
-          icon="trend"
-        />
-        <Metric
-          label="Retornos em atraso"
-          value={crm.opportunities.filter((item) => !item.deleted && overdue(item)).length}
-          detail="Próximas ações que precisam de atenção"
-          icon="clock"
-        />
-        <Metric
-          label="Vendas no CRM"
-          value={money(
-            crm.sales.reduce((total, sale) => total + sale.value, 0),
-          )}
-          detail={`${crm.sales.length} fechamentos, incluindo os das visitas`}
-          icon="chart"
-          accent
-        />
-      </div>
+      <PageHeader title="CRM">
+        {(!account || account.role === "admin") && (
+          <>
+            <button className="button secondary" onClick={() => setAddingColumn(true)}><Icon name="plus" size={18} />Adicionar coluna</button>
+            <button className="button secondary" onClick={() => setReorderingColumns(true)}><Icon name="reorder" size={18} />Reordenar colunas</button>
+          </>
+        )}
+        <button className="button primary" onClick={() => setAddingCard(true)}><Icon name="plus" size={18} />Nova oportunidade</button>
+      </PageHeader>
+      <Summary label="Resumo do CRM" items={[
+        { label: "Em andamento", value: crm.opportunities.filter((item) => !item.deleted && active(item)).length },
+        { label: "Em negociação", value: crm.opportunities.filter((item) => !item.deleted && active(item) && (item.stage === "negotiating" || item.completedProducts.length)).length },
+        { label: "Retornos em atraso", value: overdueCount, tone: overdueCount ? "alert" : "" },
+        { label: "Total vendido", value: money(crm.sales.reduce((total, sale) => total + sale.value, 0)), tone: "strong" },
+      ]} />
       <section className="crm-workspace" aria-label="Quadro de oportunidades">
         <div
           className="crm-view-tabs"
@@ -206,14 +167,14 @@ export default function Crm({
             aria-pressed={view === "board"}
             onClick={() => showView("board")}
           >
-            <Icon name="kanban" size={17} /> Em andamento
+            Em andamento
             <span>{crm.opportunities.filter((item) => !item.deleted && active(item)).length}</span>
           </button>
           <button
             aria-pressed={view === "closed"}
             onClick={() => showView("closed")}
           >
-            <Icon name="check" size={17} /> Encerradas
+            Encerradas
             <span>
               {crm.opportunities.filter((item) => !item.deleted && !active(item)).length}
             </span>
@@ -221,20 +182,19 @@ export default function Crm({
         </div>
         <div className="crm-toolbar">
           <div className="field crm-search-field">
-            <label htmlFor="crm-search">Buscar oportunidades</label>
+            <label htmlFor="crm-search">Buscar cliente</label>
             <div className="search-input">
             <Icon name="search" size={17} />
             <input
               id="crm-search"
-              aria-label="Buscar oportunidades"
-              placeholder="Obra, bairro, contato ou produto…"
+              placeholder="Nome do cliente…"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
             </div>
           </div>
-          <Select
-            label="Vendedor da oportunidade"
+          {TEAM.length > 1 && <Select
+            label="Vendedor"
             value={responsible}
             onChange={setResponsible}
           >
@@ -244,11 +204,10 @@ export default function Crm({
                 {item.name}
               </option>
             ))}
-          </Select>
-          <Select label="Origem da oportunidade" value={origin} onChange={setOrigin}>
-            <option value="">Todas as origens</option>
-            <option value="visit">Visita à obra</option>
-            <option value="manual">Obra cadastrada</option>
+          </Select>}
+          <Select label="Produto" value={product} onChange={setProduct}>
+            <option value="">Todos os produtos</option>
+            {productFilterOptions.map((name) => <option key={name} value={name}>{name}</option>)}
           </Select>
           {view === "closed" ? (
             <Select
@@ -274,15 +233,6 @@ export default function Crm({
         </div>
         {view === "board" ? (
           <>
-            <div className="crm-board-tip">
-              <span>
-                <Icon name="kanban" size={16} />
-                Uma oportunidade por obra. Todas as visitas no mesmo fluxo.
-              </span>
-              <small>
-                Abra um cartão para atualizar ou arraste entre as etapas.
-              </small>
-            </div>
             {moveError && <p className="error" role="alert">{moveError}</p>}
             <div
               className="crm-mobile-tabs"
@@ -339,15 +289,15 @@ export default function Crm({
                     <header className="crm-column-heading">
                       <span className="crm-column-title">
                         <i />
-                        {label}
+                        <span className="crm-column-name" title={label}>{label}</span>
                         {(!account || account.role === "admin") && (
                           <>
                             <button type="button" className="crm-column-edit"
                               aria-label={`Renomear coluna ${label}`} title={`Renomear coluna ${label}`}
-                              onClick={() => setEditingLabel(stage)}><Icon name="edit" size={14} /></button>
+                              onClick={() => setEditingLabel(stage)}><Icon name="edit" size={15} /></button>
                             <button type="button" className="crm-column-edit crm-column-delete"
                               aria-label={`Excluir coluna ${label}`} title={`Excluir coluna ${label}`}
-                              onClick={() => setDeletingColumn(stage)}><Icon name="close" size={14} /></button>
+                              onClick={() => setDeletingColumn(stage)}><Icon name="close" size={15} /></button>
                           </>
                         )}
                       </span>
@@ -356,38 +306,28 @@ export default function Crm({
                     <div className="crm-column-cards">
                       {!active({ stage }) ? (
                         <div className="crm-closed-summary">
-                          <Icon
-                            name={stage === "won" ? "check" : "kanban"}
-                            size={27}
-                          />
                           <strong>
-                            {items.length}{" "}
-                            {stage === "won"
-                              ? "com venda realizada"
-                              : "sem negócio"}
+                            {items.length === 1 ? "1 negociação" : `${items.length} negociações`}
                           </strong>
                           <p>
-                            Consulte os registros e o histórico na lista de
-                            encerradas.
+                            {stage === "won" ? "Fechadas com venda." : "Encerradas sem negócio."}
                           </p>
                           <button
                             className="button secondary"
                             onClick={() => showView("closed", stage)}
                           >
-                            {stage === "won"
-                              ? "Consultar vendas"
-                              : "Consultar encerradas"}
-                            <Icon name="arrow" size={15} />
+                            {stage === "won" ? "Ver vendas" : "Ver encerradas"}
                           </button>
                         </div>
                       ) : (
                         items.map((item) => (
                           <article
-                            className="crm-card"
+                            className={`crm-card ${overdue(item) ? "is-late" : ""}`}
                             key={item.id}
                             draggable
+                            title="Arraste para mudar de etapa"
                             onClick={(event) => {
-                              if (draggingCard.current || event.target.closest("button")) return;
+                              if (draggingCard.current || event.target.closest("button, a")) return;
                               open(item, active(item) ? "update" : "details");
                             }}
                             onDragStart={(event) => {
@@ -402,119 +342,47 @@ export default function Crm({
                             }}
                             onDragEnd={() => setTimeout(() => { draggingCard.current = false; }, 150)}
                           >
-                            <div className="crm-card-top">
-                              <Badge
-                                tone={
-                                  item.work.type === "Comercial" ? "blue" : ""
-                                }
-                              >
-                                {item.work.type}
-                              </Badge>
-                              <span className="crm-origin">{originLabel(item.source)}</span>
-                              {item.completedProducts.length > 0 &&
-                                active(item) && (
-                                  <span className="crm-partial">
-                                    Venda parcial
-                                  </span>
-                                )}
-                            </div>
                             <button
                               className="crm-card-title"
-                              title={item.work.name}
                               onClick={() =>
                                 open(item, active(item) ? "update" : "details")
                               }
                             >
-                              {item.work.name}
+                              {item.client.name}
                             </button>
-                            <p className="crm-card-address">
-                              <Icon name="visit" size={14} />
-                              <span title={`${item.work.neighborhood} · ${item.work.city}`}>{item.work.neighborhood} · {item.work.city}</span>
+                            {item.completedProducts.length > 0 && active(item) && (
+                              <span className="crm-partial">Venda parcial</span>
+                            )}
+                            <p className="crm-card-contact">
+                              <Icon name={!item.client.phone && item.client.email ? "mail" : "phone"} size={15} />
+                              <span>{item.client.phone || item.client.email || "Sem contato informado"}</span>
                             </p>
-                            <div className="crm-product-chips">
-                              {(active(item)
-                                ? item.pendingProducts
-                                : item.products
-                              )
-                                .slice(0, 3)
-                                .map((name) => (
-                                  <span key={name}>{name}</span>
-                                ))}
-                              {(active(item)
-                                ? item.pendingProducts
-                                : item.products
-                              ).length > 3 && (
-                                <span>
-                                  +
-                                  {(active(item)
-                                    ? item.pendingProducts
-                                    : item.products
-                                  ).length - 3}
-                                </span>
-                              )}
-                            </div>
-                              <div
-                                className={`crm-card-next ${overdue(item) ? "late" : ""} ${!item.nextAction ? "crm-card-next-empty" : ""}`}
-                                title={item.nextAction || "Sem próximo passo definido"}
-                              >
-                                <Icon name="clock" size={14} />
-                                <span>
-                                  {item.nextDate && (
-                                    <strong>
-                                      {overdue(item) ? "Em atraso · " : ""}
-                                      {dateLabel(item.nextDate)}
-                                    </strong>
-                                  )}
-                                  {item.nextAction || "Sem próximo passo definido"}
-                                </span>
-                              </div>
-                            <div className="crm-card-owner">
-                              <span className="avatar">
-                                {
-                                  TEAM.find(
-                                    (row) => row.id === item.responsibleId,
-                                  )?.initials
-                                }
-                              </span>
+                            {!!(active(item) ? item.pendingProducts : item.products).length && <ul className="crm-product-chips" aria-label="Produtos">
+                              {(active(item) ? item.pendingProducts : item.products).slice(0, 3).map((name) => <li key={name}>{name}</li>)}
+                              {(active(item) ? item.pendingProducts : item.products).length > 3 && <li>+{(active(item) ? item.pendingProducts : item.products).length - 3}</li>}
+                            </ul>}
+                            <p className={`crm-card-next ${!item.nextAction ? "empty" : ""}`}>
+                              <Icon name="clock" size={15} />
                               <span>
-                                {person(item.responsibleId)}
-                                <small>Vendedor responsável</small>
+                                {item.nextDate && <strong>{overdue(item) ? `Atrasado desde ${dateLabel(item.nextDate)}` : dateLabel(item.nextDate)}</strong>}
+                                {item.nextAction || "Sem próximo passo"}
                               </span>
-                              <small>
-                                {
-                                  crm.visitLinks.filter(
-                                    (link) =>
-                                      link.opportunityId === item.id &&
-                                      !link.deleted,
-                                  ).length
-                                }{" "}
-                                contatos
-                              </small>
-                            </div>
+                            </p>
                             <footer>
-                              <button
-                                className="button text-button"
-                                aria-label={`Abrir oportunidade ${item.work.name}`}
-                                onClick={() =>
-                                  open(
-                                    item,
-                                    active(item) ? "update" : "details",
-                                  )
-                                }
-                              >
-                                Ver detalhes
-                                <Icon name="arrow" size={15} />
-                              </button>
+                              <small>
+                                {contacts(item) === 0 ? "Nenhum atendimento" : contacts(item) === 1 ? "1 atendimento" : `${contacts(item)} atendimentos`}
+                                {item.lastContactDate ? `, último em ${dateLabel(item.lastContactDate)}` : ""}
+                              </small>
                               <button
                                 className="icon-button"
-                                aria-label={`Registrar visita em ${item.work.name}`}
-                                title="Registrar visita"
-                                onClick={() => visit(item)}
+                                aria-label={`Registrar atendimento de ${item.client.name}`}
+                                title="Registrar atendimento"
+                                onClick={() => attend(item)}
                               >
-                                <Icon name="plus" size={18} />
+                                <Icon name="message" size={18} />
                               </button>
-                              <button className="icon-button" aria-label={`Excluir cartão ${item.work.name}`} title="Excluir cartão"
-                                onClick={() => setDeletingCard(item)}><Icon name="close" size={17} /></button>
+                              <button className="icon-button danger" aria-label={`Excluir cartão ${item.client.name}`} title="Excluir cartão"
+                                onClick={() => setDeletingCard(item)}><Icon name="trash" size={18} /></button>
                             </footer>
                           </article>
                         ))
@@ -529,7 +397,7 @@ export default function Crm({
                         <p>
                           {crm.opportunities.length
                             ? "Nenhuma oportunidade nesta etapa"
-                            : "As oportunidades das visitas aparecerão aqui"}
+                            : "Crie uma oportunidade para começar"}
                         </p>
                       </div>
                     )}
@@ -549,11 +417,10 @@ export default function Crm({
               <div>
                 <h2>Negociações encerradas</h2>
                 <p>
-                  Histórico preservado. Abra uma obra para consultar ou reabrir
-                  a negociação.
+                  Abra uma negociação para consultar o histórico ou reabri-la.
                 </p>
               </div>
-              <Badge>{archived.length} registros</Badge>
+              <span className="crm-archive-count">{archived.length === 1 ? "1 negociação" : `${archived.length} negociações`}</span>
             </div>
             <div className="crm-archive-list">
               {archived
@@ -564,17 +431,16 @@ export default function Crm({
                       <Badge tone={item.stage === "won" ? "success" : ""}>
                         {labels[item.stage]}
                       </Badge>
-                      <span className="crm-origin">{originLabel(item.source)}</span>
                       <button
                         className="crm-card-title"
                         onClick={() => open(item, "details")}
                       >
-                        {item.work.name}
+                        {item.client.name}
                       </button>
                       <p>
-                        {item.work.neighborhood} · {item.work.city}
+                        {item.client.phone || item.client.email || "Sem contato informado"}
                       </p>
-                      <small>{item.products.join(" · ")}</small>
+                      {!!item.products.length && <ul className="crm-product-chips" aria-label="Produtos">{item.products.map((name) => <li key={name}>{name}</li>)}</ul>}
                     </div>
                     <div className="crm-archive-meta">
                       <span>
@@ -599,12 +465,12 @@ export default function Crm({
                     </div>
                     <button
                       className="button secondary"
-                      aria-label={`Abrir oportunidade ${item.work.name}`}
+                      aria-label={`Abrir oportunidade ${item.client.name}`}
                       onClick={() => open(item, "details")}
                     >
-                      Ver histórico <Icon name="arrow" size={15} />
+                      Ver histórico
                     </button>
-                    <button className="button text-button" onClick={() => setDeletingCard(item)} aria-label={`Excluir cartão ${item.work.name}`}>Excluir cartão</button>
+                    <button className="button text-button" onClick={() => setDeletingCard(item)} aria-label={`Excluir cartão ${item.client.name}`}>Excluir cartão</button>
                   </article>
                 ))}
             </div>
@@ -612,7 +478,7 @@ export default function Crm({
               <Empty
                 icon="check"
                 title="Nenhuma negociação encerrada"
-                description="As obras encerradas aparecerão aqui. Confira também os filtros selecionados."
+                description="As negociações encerradas aparecerão aqui. Confira também os filtros selecionados."
               />
             )}
             <Pagination
@@ -636,14 +502,13 @@ export default function Crm({
           account={account}
           onAction={onAction}
           onClose={() => setDialog(null)}
-          onVisit={() => visit(selected)}
-          onServices={onServices}
+          onAttendance={() => attend(selected)}
           onMode={(type) => open(selected, type)}
           labels={labels}
           stageOrder={stageOrder}
         />
       )}
-      {addingCard && <AddCrmCard works={data.works} stageIds={activeStageIds} labels={labels}
+      {addingCard && <AddCrmCard catalog={productNames(data)} stageIds={activeStageIds} labels={labels}
         onCreate={onCreate} onClose={() => setAddingCard(false)} />}
       {addingColumn && <AddCrmColumn onSave={onColumns} onClose={() => setAddingColumn(false)} />}
       {reorderingColumns && <ReorderCrmColumns order={stageOrder} labels={labels}
@@ -661,10 +526,9 @@ export default function Crm({
   );
 }
 
-function AddCrmCard({ works, stageIds, labels, onCreate, onClose }) {
-  const [workId, setWorkId] = useState("");
+function AddCrmCard({ catalog, stageIds, labels, onCreate, onClose }) {
   const [stage, setStage] = useState(stageIds[0] || "");
-  const [draft, setDraft] = useState({ name: "", street: "", number: "", neighborhood: "", city: "", state: "", responsible: "", phone: "", products: "" });
+  const [draft, setDraft] = useState({ name: "", phone: "", email: "", products: [], newProducts: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const field = (key) => (event) => setDraft((current) => ({ ...current, [key]: event.target.value }));
@@ -673,25 +537,26 @@ function AddCrmCard({ works, stageIds, labels, onCreate, onClose }) {
     if (!stage) return setError("Selecione uma coluna.");
     setBusy(true);
     setError("");
-    try { await onCreate({ ...draft, workId }, stage); onClose(); }
+    try {
+      await onCreate({ client: { name: draft.name, phone: draft.phone, email: draft.email }, products: draft.products, newProducts: draft.newProducts }, stage);
+      onClose();
+    }
     catch (cause) { setError(cause.message); }
     finally { setBusy(false); }
   };
   return <Modal title="Nova oportunidade" onClose={onClose}>
     <form onSubmit={submit}>
-      <p>Cadastre a obra e os produtos a negociar. O cartão será criado na coluna escolhida.</p>
-      {!!works.length && <Select label="Obra já cadastrada (opcional)" value={workId} onChange={setWorkId}>
-        <option value="">Nova obra</option>
-        {works.map((work) => <option key={work.id} value={work.id}>{work.name} · {work.neighborhood}</option>)}
-      </Select>}
-      {!workId && <>
-        <Field label="Cliente / obra" value={draft.name} onChange={field("name")} required maxLength={180} />
-        <div className="fields two"><Field label="Rua / avenida" value={draft.street} onChange={field("street")} required maxLength={180} /><Field label="Número" value={draft.number} onChange={field("number")} maxLength={20} /></div>
-        <div className="fields two"><Field label="Bairro" value={draft.neighborhood} onChange={field("neighborhood")} required maxLength={100} /><Field label="Cidade" value={draft.city} onChange={field("city")} required maxLength={100} /></div>
-        <div className="fields two"><Field label="UF" value={draft.state} onChange={field("state")} required maxLength={2} /><Field label="Contato responsável" value={draft.responsible} onChange={field("responsible")} maxLength={180} /></div>
-        <Field label="Telefone" type="tel" value={draft.phone} onChange={field("phone")} maxLength={25} />
-      </>}
-      <Field label="Produtos a negociar" value={draft.products} onChange={field("products")} required placeholder="Separe os produtos por vírgula" hint="Ex.: Forro, Divisória" />
+      <Field label="Nome do cliente" value={draft.name} onChange={field("name")} required maxLength={180} autoComplete="off" />
+      <div className="fields two">
+        <Field label="Telefone" type="tel" value={draft.phone} onChange={field("phone")} maxLength={25} placeholder="(11) 91234-5678" />
+        <Field label="E-mail" type="email" value={draft.email} onChange={field("email")} maxLength={254} placeholder="cliente@exemplo.com" />
+      </div>
+      {!!catalog.length && <fieldset className="crm-product-options crm-new-card-products"><legend>Produtos a negociar</legend>
+        {catalog.map((name) => <label key={name}><input type="checkbox" checked={draft.products.includes(name)}
+          onChange={(event) => setDraft((current) => ({ ...current, products: event.target.checked ? [...current.products, name] : current.products.filter((row) => row !== name) }))} />{name}</label>)}
+      </fieldset>}
+      <Field label={catalog.length ? "Outros produtos (novos)" : "Produtos a negociar"} value={draft.newProducts} onChange={field("newProducts")} required={!catalog.length}
+        placeholder="Separe os produtos por vírgula" hint="Produtos digitados aqui também entram no cadastro de Produtos." />
       <Select label="Coluna" value={stage} onChange={setStage} required>
         {stageIds.map((id) => <option key={id} value={id}>{labels[id]}</option>)}
       </Select>
@@ -880,7 +745,7 @@ function DeleteCrmCard({ item, onAction, onClose }) {
     finally { setBusy(false); }
   };
   return <Modal title="Excluir cartão do CRM?" onClose={onClose}>
-    <p><strong>{item.work.name}</strong> sairá do quadro. Visitas, vendas e histórico serão preservados.</p>
+    <p><strong>{item.client.name}</strong> sairá do quadro. Atendimentos, vendas e histórico serão preservados.</p>
     {error && <p className="error" role="alert">{error}</p>}
     <footer className="modal-actions"><button className="button secondary" onClick={onClose}>Cancelar</button>
       <button className="button primary" disabled={busy} onClick={submit}>{busy ? "Excluindo…" : "Excluir cartão"}</button></footer>
@@ -896,8 +761,7 @@ function CrmDialog({
   account,
   onAction,
   onClose,
-  onVisit,
-  onServices,
+  onAttendance,
   onMode,
   labels,
   stageOrder,
@@ -966,34 +830,34 @@ function CrmDialog({
   const productOptions =
     type === "reopen" ? productNames(data) : item.pendingProducts;
   return (
-    <Modal title={item.work.name} onClose={busy ? () => {} : onClose} wide>
+    <Modal title={item.client.name} onClose={busy ? () => {} : onClose} wide>
       <div className="crm-detail-summary">
         <div>
           <Badge tone="blue">{labels[item.stage]}</Badge>
-          <Badge>{originLabel(item.source)}</Badge>
-          <p>{addressLabel(item.work)}</p>
-          {item.work.responsible && (
-            <p>
-              Responsável da obra: <strong>{item.work.responsible}</strong>
-            </p>
-          )}
-          {item.work.phone && (
-            <a href={`tel:${item.work.phone.replace(/\D/g, "")}`}>
+          {item.client.phone && (
+            <a href={`tel:${phoneDigits(item.client.phone)}`}>
               <Icon name="phone" size={14} />
-              {item.work.phone}
+              {item.client.phone}
             </a>
           )}
-          <small>
-            Prospecção: {person(item.prospectorId)} · Vendedor responsável:{" "}
-            {person(item.responsibleId)}
-          </small>
+          {item.client.email && (
+            <a href={`mailto:${item.client.email}`}>
+              <Icon name="mail" size={14} />
+              {item.client.email}
+            </a>
+          )}
+          {!item.client.phone && !item.client.email && <p>Sem telefone ou e-mail informado.</p>}
+          {TEAM.length > 1 && <small>
+            Prospecção: {person(item.prospectorId)}. Vendedor responsável:{" "}
+            {person(item.responsibleId)}.
+          </small>}
         </div>
-        <button className="button secondary" disabled={busy} onClick={onVisit}>
-          <Icon name="visit" size={16} />
-          Registrar visita
+        <button className="button primary" disabled={busy} onClick={onAttendance}>
+          <Icon name="message" size={18} />
+          Registrar atendimento
         </button>
       </div>
-      <div className="crm-detail-actions">
+      <div className="crm-detail-actions" role="group" aria-label="O que você quer registrar">
         {active(item) ? (
           <>
             <button
@@ -1067,7 +931,7 @@ function CrmDialog({
           </>
         )}
       </div>
-      <ProspectingContext opportunity={item} account={account} />
+      <AttendanceHistory attendances={opportunityAttendances(data, item.id)} />
       {type !== "details" && (
         <form className="crm-action-form" onSubmit={submit}>
           <h3>{titles[type]}</h3>
@@ -1078,7 +942,7 @@ function CrmDialog({
                 <strong>{labels[item.stage]}</strong>. Seus campos foram
                 mantidos. Vendedor atual: {person(item.responsibleId)}.
                 Próxima ação atual: {item.nextAction || "Não informada"}
-                {item.nextDate ? ` · ${dateLabel(item.nextDate)}` : ""}.
+                {item.nextDate ? `, em ${dateLabel(item.nextDate)}` : ""}.
               </p>
               <button
                 type="button"
@@ -1105,7 +969,7 @@ function CrmDialog({
                       </option>
                     ))}
                 </Select>
-                {!account || account.role === "admin"
+                {TEAM.length <= 1 ? null : !account || account.role === "admin"
                   ? <Select
                       label="Vendedor responsável"
                       value={responsibleId}
@@ -1171,8 +1035,8 @@ function CrmDialog({
               </fieldset>
               {!productOptions.length && (
                 <p className="inline-note">
-                  Registre uma visita com os produtos de interesse para iniciar
-                  a negociação.
+                  Registre um atendimento com os produtos de interesse para
+                  iniciar a negociação.
                 </p>
               )}
             </>
@@ -1200,7 +1064,7 @@ function CrmDialog({
                   onChange={(event) => setDate(event.target.value)}
                 />
               </div>
-              <Select
+              {TEAM.length > 1 && <Select
                 label="Quem realizou a venda"
                 value={seller}
                 onChange={setSeller}
@@ -1211,7 +1075,7 @@ function CrmDialog({
                     {user.name}
                   </option>
                 ))}
-              </Select>
+              </Select>}
             </>
           )}
           {type === "complete" && (
@@ -1262,10 +1126,6 @@ function CrmDialog({
           </footer>
         </form>
       )}
-      {onServices && crm.sales.some((sale) => sale.opportunityId === item.id) && <section className="service-crm-handoff">
-        <h3>Serviços após a venda</h3>
-        {crm.sales.filter((sale) => sale.opportunityId === item.id).map((sale) => <div key={sale.id}><span>{dateLabel(sale.date)} · {sale.products.join(", ")}</span><button className="button secondary" onClick={() => { onClose(); onServices(sale.id); }}><Icon name="tools" size={16} />Criar serviço</button></div>)}
-      </section>}
       <section className="crm-timeline" aria-label="Histórico da oportunidade">
         <h3>Uma história construída pela equipe</h3>
         {events.map((event) => (
@@ -1276,26 +1136,25 @@ function CrmDialog({
             <div>
               <strong>{eventLabel(event, labels)}</strong>
               <small>
-                {event.actorName} · {new Date(event.at).toLocaleString("pt-BR")}
+                {event.actorName}, {new Date(event.at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
               </small>
               {event.note && <p>{event.note}</p>}
               {event.type === "sale" && (
                 <p>
-                  {event.products.join(", ")} · {money(event.value)} · Venda:{" "}
-                  {person(event.sellerTeamId)} · {dateLabel(event.date)}
+                  {money(event.value)} em {event.products.join(", ")}, vendido em {dateLabel(event.date)}
+                  {TEAM.length > 1 ? ` por ${person(event.sellerTeamId)}` : ""}.
                 </p>
               )}
-              {event.type === "visit" && (
+              {event.type === "attendance" && (
                 <p>
-                  {dateLabel(event.date)} ·{" "}
-                  {event.products.join(", ") || "Relacionamento sem produtos"}
+                  {ATTENDANCE_CHANNELS[event.channel]} em {dateLabel(event.date)}
+                  {event.products.length ? `, com ${event.products.join(", ")}` : ""}.
                 </p>
               )}
-              {event.type === "updated" && (
+              {event.type === "updated" && (event.nextAction || TEAM.length > 1) && (
                 <p>
-                  Vendedor: {person(event.responsibleId)}
-                  {event.nextAction ? ` · ${event.nextAction}` : ""}
-                  {event.nextDate ? ` · ${dateLabel(event.nextDate)}` : ""}
+                  {TEAM.length > 1 ? `Vendedor: ${person(event.responsibleId)}. ` : ""}
+                  {event.nextAction ? `Próximo passo: ${event.nextAction}${event.nextDate ? `, em ${dateLabel(event.nextDate)}` : ""}.` : ""}
                 </p>
               )}
             </div>
@@ -1305,53 +1164,25 @@ function CrmDialog({
     </Modal>
   );
 }
-function ProspectingContext({ opportunity, account }) {
-  const allowed = !account || account.role === "admin" ||
-    account.teamId === opportunity.responsibleId;
-  const key = `${opportunity.id}:${opportunity.version}`;
-  const [result, setResult] = useState({ key: "", visits: null, error: "" });
-  useEffect(() => {
-    if (!allowed) return;
-    const controller = new AbortController();
-    repository.crmProspecting(opportunity.id, controller.signal)
-      .then((visits) => {
-        if (!controller.signal.aborted) setResult({ key, visits, error: "" });
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setResult({ key, visits: null, error: error.message });
-      });
-    return () => controller.abort();
-  }, [key, allowed]);
-  const visits = result.key === key ? result.visits : null;
-  return <section className="crm-prospecting-context" aria-label="Registros da prospecção">
+function AttendanceHistory({ attendances }) {
+  return <section className="crm-prospecting-context" aria-label="Atendimentos do cliente">
     <div className="crm-prospecting-heading">
-      <span className="crm-prospecting-icon"><Icon name="camera" size={19} /></span>
-      <div>
-        <h3>Registros da prospecção</h3>
-        <p>Fotos e anotações para preparar a conversa com o cliente.</p>
-      </div>
+      <h3>Atendimentos</h3>
+      <span>{attendances.length === 1 ? "1 registro" : `${attendances.length} registros`}</span>
     </div>
-    {!allowed ? <p className="crm-prospecting-empty">Disponível para o vendedor designado e a administração.</p>
-      : result.key !== key ? <p className="crm-prospecting-empty" role="status">Carregando registros…</p>
-      : result.error ? <p className="error" role="alert">{result.error}</p>
-      : !visits?.length ? <p className="crm-prospecting-empty">Nenhuma visita vinculada a esta oportunidade.</p>
-      : <div className="crm-prospecting-list">{visits.map((visit) =>
-        <article className="crm-prospecting-visit" key={visit.id}>
+    {!attendances.length ? <p className="crm-prospecting-empty">Nenhum atendimento registrado nesta oportunidade.</p>
+      : <div className="crm-prospecting-list">{attendances.map((row) =>
+        <article className="crm-prospecting-visit" key={row.id}>
           <div className="crm-prospecting-visit-heading">
-            <strong>{dateLabel(visit.date)}</strong>
-            <span>Visita de {person(visit.userId)}</span>
+            <strong>{dateLabel(row.date)}</strong>
+            <span>{ATTENDANCE_CHANNELS[row.channel]}, {ATTENDANCE_KINDS[row.kind].toLowerCase()}{TEAM.length > 1 ? `, por ${person(row.userId)}` : ""}</span>
           </div>
-          {!!visit.offered?.length && <div className="crm-prospecting-products">
-            {visit.offered.map((product) => <Badge key={product} tone={visit.sold?.includes(product) ? "success" : "blue"}>
-              {product}{visit.sold?.includes(product) ? " · vendido" : " · oferecido"}
+          {!!row.offered?.length && <div className="crm-prospecting-products">
+            {row.offered.map((product) => <Badge key={product} tone={row.sold?.includes(product) ? "success" : "blue"}>
+              {product}{row.sold?.includes(product) ? ", vendido" : ""}
             </Badge>)}
           </div>}
-          {visit.notes && <p className="pre-line">{visit.notes}</p>}
-          {!!visit.photos?.length && <div className="detail-photos crm-prospecting-photos">
-            {visit.photos.map((photo) => <VisitPhoto key={photo.id} photo={photo} alt={`Foto da obra: ${photo.name}`} />)}
-          </div>}
-          {!visit.notes && !visit.photos?.length && <small>Sem fotos ou anotações neste contato.</small>}
+          {row.notes ? <p className="pre-line">{row.notes}</p> : <small>Sem anotações neste atendimento.</small>}
         </article>)}</div>}
   </section>;
 }
@@ -1359,7 +1190,7 @@ function eventLabel(event, labels = CRM_STAGES) {
   return (
     {
       created: "Oportunidade aberta",
-      visit: "Visita registrada",
+      attendance: "Atendimento registrado",
       deleted: "Cartão ocultado",
       restored: "Cartão restaurado",
       sale: "Venda registrada",

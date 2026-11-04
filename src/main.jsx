@@ -1,20 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Crm from "./components/Crm.jsx";
-import Services from "./components/Services.jsx";
+import Products from "./components/Products.jsx";
+import Users from "./components/Users.jsx";
 import { Field, Icon, Modal, Select } from "./components/ui.jsx";
-import { applyCrmAction, changeCrmColumns, createCrmOpportunity, reconcileLocalCrm } from "./lib/crm.mjs";
-import { newVisit, normalize, productName, productNames, recordVisit, today, uid } from "./lib/domain.mjs";
-import { preparePhoto } from "./lib/photo.mjs";
+import { applyCrmAction, changeCrmColumns, createCrmOpportunity, recordAttendance } from "./lib/crm.mjs";
+import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, newAttendance, normalize, productName, productNames, today } from "./lib/domain.mjs";
+import { deleteProduct, ensureProducts, saveProduct } from "./lib/products.mjs";
 import { repository } from "./lib/repository.mjs";
-import { cloud, cloudEnabled, memberFor, signedInUser } from "./lib/cloud.mjs";
+import { cloud, cloudEnabled, manageUsers, memberFor, signedInUser } from "./lib/cloud.mjs";
 import { authErrorMessage, loginEmail } from "./lib/login.mjs";
-import "./styles.css";
-import "./readability.css";
-import "./luso.css";
+import { PASSWORD_MAX, PASSWORD_MIN, validatePasswordChange } from "./lib/users.mjs";
+import "./base.css";
 
 const localActor = { role: "admin", teamId: "equipe", name: "Equipe Luso" };
 const logoUrl = `${import.meta.env.BASE_URL}luso-logo.png`;
+const PAGES = [
+  { id: "crm", label: "CRM", icon: "kanban" },
+  { id: "products", label: "Produtos", icon: "passport" },
+  { id: "users", label: "Usuários", icon: "users", admin: true },
+];
 function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -22,9 +27,7 @@ function App() {
   const [authReady, setAuthReady] = useState(!cloudEnabled);
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("crm");
-  const [mobileMenu, setMobileMenu] = useState(false);
-  const [visitTarget, setVisitTarget] = useState(null);
-  const [serviceSeed, setServiceSeed] = useState(null);
+  const [attendanceTarget, setAttendanceTarget] = useState(null);
   const queue = useRef(Promise.resolve());
   const accessKey = useRef(null);
   useEffect(() => {
@@ -76,26 +79,16 @@ function App() {
     return next;
   }, []);
   const createCard = useCallback((draft, stage) => commit((current) => {
-    const names = [...new Set(draft.products.split(",").map(productName).filter(Boolean))];
-    if (!names.length) throw new Error("Informe ao menos um produto.");
-    if (names.some((name) => name.length > 80)) throw new Error("Cada produto deve ter até 80 caracteres.");
-    const existing = draft.workId ? current.works.find((row) => row.id === draft.workId && !row.deleted) : null;
-    if (draft.workId && !existing) throw new Error("Obra indisponível.");
-    const work = existing || {
-      id: uid(), name: draft.name.trim(), street: draft.street.trim(), number: draft.number.trim(),
-      neighborhood: draft.neighborhood.trim(), city: draft.city.trim(), state: draft.state.trim().toUpperCase(),
-      responsible: draft.responsible.trim(), phone: draft.phone.trim(), type: "Comercial",
-      ownerId: actor.teamId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    };
-    if (!work.name || !work.street || !work.neighborhood || !work.city || !/^[A-Z]{2}$/.test(work.state))
-      throw new Error("Preencha obra, rua, bairro, cidade e UF.");
-    const crm = createCrmOpportunity(current.crm, work, actor, { stage });
-    const item = crm.opportunities.find((row) => row.primaryWorkId === work.id && !row.deleted);
-    item.products = [...new Set([...item.products, ...names])];
-    item.pendingProducts = [...new Set([...item.pendingProducts, ...names.filter((name) => !item.completedProducts.includes(name))])];
-    const known = new Set(productNames(current).map(normalize));
-    const products = [...current.products, ...names.filter((name) => !known.has(normalize(name))).map((name) => ({ id: uid(), name }))];
-    return { ...current, products, works: existing ? current.works : [...current.works, work], crm };
+    const typed = [...draft.products, ...draft.newProducts.split(",")].map(productName).filter(Boolean);
+    if (!typed.length) throw new Error("Selecione ou informe ao menos um produto.");
+    if (typed.some((name) => name.length > 80)) throw new Error("Cada produto deve ter até 80 caracteres.");
+    const catalog = ensureProducts(current, typed);
+    const names = catalog.names;
+    const crm = createCrmOpportunity(current.crm, draft.client, actor, { stage });
+    const item = crm.opportunities.at(-1);
+    item.products = [...names];
+    item.pendingProducts = [...names];
+    return { ...current, products: catalog.data.products, crm };
   }), [commit, actor]);
   const crmAction = useCallback((id, action) => commit((current) => ({
     ...current, crm: applyCrmAction(current.crm, id, action, actor, productNames(current)),
@@ -107,11 +100,10 @@ function App() {
       throw new Error("Informe nomes diferentes para as colunas.");
     return { ...current, crm: { ...current.crm, stageLabels: next } };
   }), [commit]);
-  const saveServices = useCallback((update) => commit(update), [commit]);
-  const saveVisit = useCallback((draft) => commit((current) => {
-    const next = recordVisit(current, draft);
-    return reconcileLocalCrm(next, actor);
-  }), [commit, actor]);
+  const saveProductDraft = useCallback((draft) => commit((current) => saveProduct(current, draft)), [commit]);
+  const removeProduct = useCallback((id) => commit((current) => deleteProduct(current, id)), [commit]);
+  const saveAttendance = useCallback((draft) => commit((current) =>
+    recordAttendance(current, { ...draft, allowedProducts: productNames(current) }, actor)), [commit, actor]);
   const importBackup = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -125,32 +117,71 @@ function App() {
     }
     catch (cause) { setError(cause.message); }
   };
-  const navigate = (target) => { setPage(target); setMobileMenu(false); };
-  if (!authReady) return <main className="luso-startup" role="status">Verificando acesso…</main>;
+  const navigate = (target) => { setPage(target); window.scrollTo({ top: 0 }); };
+  if (!authReady) return <main className="status-screen" role="status">Verificando acesso…</main>;
   if (cloudEnabled && !user) return <Login />;
-  if (cloudEnabled && !actor) return <main className="luso-startup"><h1>Acesso pendente</h1><p>{error || "Esta conta ainda não faz parte da equipe Luso."}</p><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></main>;
-  if (error && !data) return <main className="luso-startup"><h1>Não foi possível abrir a Luso</h1><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Tentar novamente</button></main>;
-  if (!data) return <main className="luso-startup" role="status">Carregando CRM e Serviços…</main>;
-  return <div className="app-shell luso-app">
+  if (cloudEnabled && !actor) return <main className="status-screen"><h1>Acesso pendente</h1><p>{error || "Esta conta ainda não faz parte da equipe Luso. Peça acesso a um administrador."}</p><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></main>;
+  if (error && !data) return <main className="status-screen"><h1>Não foi possível abrir a Luso</h1><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Tentar novamente</button></main>;
+  if (cloudEnabled && actor.mustChangePassword) return <FirstAccess actor={actor} onDone={() => setActor((current) => ({ ...current, mustChangePassword: false }))} />;
+  if (!data) return <main className="status-screen" role="status">Carregando CRM e Produtos…</main>;
+  const canManageUsers = cloudEnabled && actor.isAdmin;
+  const pages = PAGES.filter((item) => !item.admin || canManageUsers);
+  const current = pages.some((item) => item.id === page) ? page : "crm";
+  return <div className="app-shell">
     <a href="#main-content" className="skip-link">Ir para o conteúdo</a>
-    <aside className={`sidebar ${mobileMenu ? "open" : ""}`} aria-label="Navegação principal">
-      <div className="luso-brand"><img src={logoUrl} alt="Cidadania Luso Italiana Assessoria" /></div>
+    <aside className="sidebar">
+      <div className="brand"><img src={logoUrl} alt="Cidadania Luso Italiana Assessoria" /></div>
       <nav aria-label="Navegação principal">
-        <button className={page === "crm" ? "active" : ""} onClick={() => navigate("crm")}><Icon name="kanban" /><span>CRM</span></button>
-        <button className={page === "services" ? "active" : ""} onClick={() => navigate("services")}><Icon name="tools" /><span>Serviços</span></button>
+        {pages.map((item) => <button key={item.id} aria-current={current === item.id ? "page" : undefined} onClick={() => navigate(item.id)}>
+          <Icon name={item.icon} /><span>{item.label}</span>
+        </button>)}
+        {cloudEnabled && <button className="nav-logout" onClick={() => cloud.auth.signOut()}><Icon name="logout" /><span>Sair</span></button>}
       </nav>
-      {cloudEnabled && <div className="luso-side-note">Conectado: {actor.name}</div>}
+      {cloudEnabled && <div className="account">
+        <span className="account-name">{actor.name}</span>
+        <span className="account-role">{actor.isAdmin ? "Administrador" : "Usuário"}</span>
+        <button className="account-logout" onClick={() => cloud.auth.signOut()}><Icon name="logout" size={18} />Sair</button>
+      </div>}
     </aside>
-    {mobileMenu && <button className="luso-menu-backdrop" aria-label="Fechar navegação" onClick={() => setMobileMenu(false)} />}
-    <div className="workspace">
-      <header className="topbar"><div className="breadcrumb"><button className="menu-toggle" aria-label="Abrir navegação" onClick={() => setMobileMenu(true)}><Icon name="menu" /></button><span>Luso</span><Icon name="chevron" size={15} /><strong>{page === "crm" ? "CRM" : "Serviços"}</strong></div>{cloudEnabled && <div className="luso-tools"><label className="button secondary luso-import">Importar backup<input type="file" accept="application/json,.json" onChange={importBackup} /></label><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></div>}</header>
-      <main id="main-content">{error && <p className="error" role="alert">{error}</p>}<div className="page-header"><div><span className="eyebrow">LUSO</span><h1>{page === "crm" ? "Oportunidades em movimento." : "Da venda à entrega."}</h1><p>{page === "crm" ? "Acompanhe negociações, fechamentos e próximos passos." : "Organize instalações, equipe e retornos."}</p></div></div>
-        {page === "crm" ? <Crm data={data} actorId={actor.teamId} account={actor} onAction={crmAction} onCreate={createCard} onColumns={columns} onLabels={labels} onVisit={setVisitTarget} onServices={(saleId) => { setServiceSeed({ saleId, nonce: Date.now() }); navigate("services"); }} /> : <Services data={data} save={saveServices} actor={actor.name} seed={serviceSeed} />}
-      </main>
-      <footer className="workspace-footer"><span>Luso</span><span>CRM & Serviços</span></footer>
-    </div>
-    {visitTarget && <VisitCapture opportunity={visitTarget} actor={actor} onClose={() => setVisitTarget(null)} onSave={saveVisit} />}
+    <main id="main-content" className="workspace">
+      {error && <p className="error" role="alert">{error}</p>}
+      {current === "crm" && <Crm data={data} actorId={actor.teamId} account={actor} onAction={crmAction} onCreate={createCard} onColumns={columns} onLabels={labels} onAttendance={setAttendanceTarget} />}
+      {current === "products" && <Products data={data} onSave={saveProductDraft} onDelete={removeProduct} />}
+      {current === "users" && <Users actor={actor} onImportBackup={importBackup} onSelfUpdated={(user) => setActor((value) => ({ ...value, name: user.display_name, login: user.login }))} />}
+    </main>
+    {attendanceTarget && <AttendanceCapture opportunity={attendanceTarget} catalog={productNames(data)} actor={actor} onClose={() => setAttendanceTarget(null)} onSave={saveAttendance} />}
   </div>;
+}
+
+function FirstAccess({ actor, onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (event) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const next = validatePasswordChange(password, confirmation);
+      await manageUsers("set-password", { password: next });
+      // Trocar a senha encerra a sessão atual no Supabase; entra de novo com a senha nova.
+      const { error: cause } = await cloud.auth.signInWithPassword({ email: loginEmail(actor.login), password: next });
+      if (cause) throw new Error("Senha salva. Entre novamente com a nova senha.");
+      onDone();
+    } catch (cause) { setError(cause.message); setBusy(false); }
+  };
+  return <main className="auth-screen"><div className="auth-card">
+    <img className="auth-logo" src={logoUrl} alt="Cidadania Luso Italiana Assessoria" />
+    <h1>Defina sua senha</h1><p>Olá, {actor.name}. Este é seu primeiro acesso: troque a senha temporária por uma senha só sua.</p>
+    <form onSubmit={submit} className="auth-form">
+      <Field label="Nova senha" type="password" autoComplete="new-password" minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX} value={password} onChange={(event) => setPassword(event.target.value)} required hint={`Mínimo de ${PASSWORD_MIN} caracteres.`} />
+      <Field label="Confirme a nova senha" type="password" autoComplete="new-password" maxLength={PASSWORD_MAX} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required />
+      {error && <p className="error" role="alert">{error}</p>}
+      <button className="button primary" disabled={busy}>{busy ? "Salvando…" : "Salvar senha e entrar"}</button>
+      <button type="button" className="button text-button" disabled={busy} onClick={() => cloud.auth.signOut()}>Sair sem trocar a senha</button>
+    </form>
+  </div></main>;
 }
 
 function Login() {
@@ -168,10 +199,10 @@ function Login() {
     } catch (cause) { setError(authErrorMessage(cause)); }
     finally { setBusy(false); }
   };
-  return <main className="luso-login-screen"><div className="luso-login-card">
-    <img className="luso-login-logo" src={logoUrl} alt="Cidadania Luso Italiana Assessoria" />
-    <h1>Acesse sua conta</h1><p>Entre para acompanhar o CRM e os serviços da Luso.</p>
-    <form onSubmit={submit} className="luso-login-form">
+  return <main className="auth-screen"><div className="auth-card">
+    <img className="auth-logo" src={logoUrl} alt="Cidadania Luso Italiana Assessoria" />
+    <h1>Acesse sua conta</h1><p>Use o login e a senha que a administração enviou para você.</p>
+    <form onSubmit={submit} className="auth-form">
       <Field label="Login" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={40} value={login} onChange={(event) => setLogin(event.target.value)} required />
       <Field label="Senha" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       {error && <p className="error" role="alert">{error}</p>}
@@ -180,34 +211,31 @@ function Login() {
   </div></main>;
 }
 
-function VisitCapture({ opportunity, actor, onClose, onSave }) {
-  const work = opportunity.work;
-  const [form, setForm] = useState(() => ({ ...newVisit(actor.teamId), workId: opportunity.primaryWorkId, workName: work.name,
-    ...Object.fromEntries(["cep", "street", "number", "complement", "neighborhood", "city", "state", "type", "responsible", "phone"].map((key) => [key, work[key] || ""])),
-    offered: [...opportunity.pendingProducts], sellerId: opportunity.responsibleId, crmOpportunityId: opportunity.id }));
+function AttendanceCapture({ opportunity, catalog, actor, onClose, onSave }) {
+  const [form, setForm] = useState(() => ({ ...newAttendance(actor.teamId, opportunity.id), offered: [...opportunity.pendingProducts] }));
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const options = [...new Set([...opportunity.products, ...catalog])];
   const change = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
-  const upload = async (event) => {
-    const files = [...event.target.files];
-    if (form.photos.length + files.length > 6) return setError("Adicione no máximo seis fotos.");
-    setBusy(true);
-    try { const photos = await Promise.all(files.map(preparePhoto)); setForm((current) => ({ ...current, photos: [...current.photos, ...photos] })); }
-    catch (cause) { setError(cause.message); } finally { setBusy(false); }
-  };
+  const toggle = (key, name) => (event) => setForm((current) => {
+    const list = event.target.checked ? [...current[key], name] : current[key].filter((row) => row !== name);
+    return key === "offered" ? { ...current, offered: list, sold: current.sold.filter((row) => list.includes(row)) } : { ...current, [key]: list };
+  });
   const submit = async (event) => {
     event.preventDefault(); setBusy(true); setError("");
     try { await onSave(form); onClose(); }
     catch (cause) { setError(cause.message); } finally { setBusy(false); }
   };
-  return <Modal title={`Registrar visita · ${work.name}`} onClose={() => !busy && onClose()} wide><form onSubmit={submit} className="luso-visit-form">
-    <p>Registre a visita nesta oportunidade. O histórico e a autoria permanecem vinculados à obra.</p>
-    <div className="fields two"><Field label="Data da visita" type="date" max={today()} value={form.date} onChange={change("date")} required /><Select label="Tipo de visita" value={form.stage} onChange={(stage) => setForm((current) => ({ ...current, stage, sold: stage === "closing" ? current.sold : [], saleValue: stage === "closing" ? current.saleValue : "" }))}><option value="prospecting">Prospecção</option><option value="relationship">Relacionamento</option><option value="closing">Fechamento</option></Select></div>
-    <fieldset className="crm-product-options"><legend>Produtos oferecidos</legend>{opportunity.products.map((name) => <label key={name}><input type="checkbox" checked={form.offered.includes(name)} onChange={(event) => setForm((current) => ({ ...current, offered: event.target.checked ? [...current.offered, name] : current.offered.filter((row) => row !== name), sold: event.target.checked ? current.sold : current.sold.filter((row) => row !== name) }))} />{name}</label>)}</fieldset>
-    {form.stage === "closing" && <><fieldset className="crm-product-options"><legend>Produtos vendidos</legend>{form.offered.map((name) => <label key={name}><input type="checkbox" checked={form.sold.includes(name)} onChange={(event) => setForm((current) => ({ ...current, sold: event.target.checked ? [...current.sold, name] : current.sold.filter((row) => row !== name) }))} />{name}</label>)}</fieldset><Field label="Valor total vendido (R$)" type="number" min="0" step="0.01" value={form.saleValue} onChange={change("saleValue")} /></>}
-    <Field label="Anotações"><textarea value={form.notes} onChange={change("notes")} rows={3} maxLength={4000} /></Field>
-    <Field label="Fotos da visita"><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={upload} /></Field>{!!form.photos.length && <p>{form.photos.length} foto(s) adicionada(s)</p>}
+  return <Modal title={`Atendimento de ${opportunity.client.name}`} onClose={() => !busy && onClose()} wide><form onSubmit={submit} className="attendance-form">
+    <p className="form-note">Os produtos apresentados entram na negociação. Num atendimento de fechamento, marque também o que foi vendido.</p>
+    <div className="fields two"><Field label="Data do atendimento" type="date" max={today()} value={form.date} onChange={change("date")} required />
+      <Select label="Forma de contato" value={form.channel} onChange={(channel) => setForm((current) => ({ ...current, channel }))}>{Object.entries(ATTENDANCE_CHANNELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select></div>
+    <Select label="Tipo de atendimento" value={form.kind} onChange={(kind) => setForm((current) => ({ ...current, kind, sold: kind === "closing" ? current.sold : [], saleValue: kind === "closing" ? current.saleValue : "" }))}>{Object.entries(ATTENDANCE_KINDS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</Select>
+    {options.length ? <fieldset className="crm-product-options"><legend>Produtos apresentados</legend>{options.map((name) => <label key={name}><input type="checkbox" checked={form.offered.includes(name)} onChange={toggle("offered", name)} />{name}</label>)}</fieldset>
+      : <p className="inline-note">Cadastre produtos na página Produtos para apresentá-los no atendimento.</p>}
+    {form.kind === "closing" && <><fieldset className="crm-product-options"><legend>Produtos vendidos</legend>{form.offered.map((name) => <label key={name}><input type="checkbox" checked={form.sold.includes(name)} onChange={toggle("sold", name)} />{name}</label>)}</fieldset><Field label="Valor total vendido (R$)" type="number" min="0" step="0.01" value={form.saleValue} onChange={change("saleValue")} /></>}
+    <Field label="Anotações"><textarea value={form.notes} onChange={change("notes")} rows={4} maxLength={4000} placeholder="O que foi conversado, dúvidas do cliente, combinados…" /></Field>
     {error && <p className="error" role="alert">{error}</p>}
-    <footer className="modal-actions"><button type="button" className="button secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="button primary" disabled={busy}>{busy ? "Salvando…" : "Salvar visita"}</button></footer>
+    <footer className="modal-actions"><button type="button" className="button secondary" onClick={onClose} disabled={busy}>Cancelar</button><button className="button primary" disabled={busy}>{busy ? "Salvando…" : "Salvar atendimento"}</button></footer>
   </form></Modal>;
 }
 

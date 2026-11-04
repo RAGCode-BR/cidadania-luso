@@ -19,10 +19,33 @@ export async function signedInUser() {
   return data.user;
 }
 
+// No CRM todos os membros têm acesso completo (role "admin"); isAdmin controla
+// apenas a gestão de usuários.
 export async function memberFor(user) {
   if (!user) return null;
   const { data, error } = await cloud.from("luso_members")
-    .select("display_name").eq("user_id", user.id).eq("active", true).maybeSingle();
+    .select("display_name, login, is_admin, must_change_password").eq("user_id", user.id).eq("active", true).maybeSingle();
   if (error) throw error;
-  return data ? { role: "admin", teamId: "equipe", name: data.display_name } : null;
+  return data ? {
+    role: "admin", teamId: "equipe", name: data.display_name, userId: user.id, login: data.login,
+    isAdmin: data.is_admin, mustChangePassword: data.must_change_password,
+  } : null;
+}
+
+export async function listMembers() {
+  const { data, error } = await cloud.from("luso_members")
+    .select("user_id, display_name, login, is_admin, must_change_password, active, created_at")
+    .order("display_name");
+  if (error) throw error;
+  return data;
+}
+
+// Chama a Edge Function luso-users e traduz o erro devolvido por ela.
+export async function manageUsers(action, payload = {}) {
+  const { data, error } = await cloud.functions.invoke("luso-users", { body: { action, ...payload } });
+  if (error) {
+    const body = await error.context?.json?.().catch(() => null);
+    throw new Error(body?.error || "Não foi possível falar com o servidor. Tente novamente.");
+  }
+  return data;
 }

@@ -1,0 +1,22 @@
+.users-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.users-password-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: start; }
+.users-password-row > .button { margin-top: 27px; }
+.users-admin-option { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-small); cursor: pointer; }
+.users-admin-option:has(input:checked) { border-color: #a9bbb0; background: #f6f9f7; }
+.users-admin-option:has(input:disabled) { cursor: not-allowed; }
+.users-admin-option input { margin-top: 2px; }
+.users-admin-option span { display: grid; gap: 2px; }
+.users-admin-option strong { color: var(--ink); font-size: 15px; }
+.users-admin-option small { color: var(--muted); font-size: 14px; }
+.users-credentials { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 20px; align-items: baseline; margin: 16px 24px 0; padding: 16px 18px; border-radius: var(--radius); background: var(--green-soft); }
+.users-credentials dt { color: var(--muted); font-size: 14px; }
+/* Senha temporária em fonte monoespaçada para distinguir caracteres parecidos. */
+.users-credentials dd { margin: 0; color: var(--green); font-size: 18px; font-weight: 700; font-family: ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; user-select: all; }
+.modal-actions .button.users-delete-link { margin-right: auto; color: var(--red); }
+.modal-actions .button.users-delete-link:hover:not(:disabled) { background: var(--red-soft); color: var(--red-hover); }
+@media (max-width: 760px) {
+  .users-password-row { grid-template-columns: minmax(0, 1fr); }
+  .users-password-row > .button { margin: -6px 0 16px; justify-self: start; }
+  .users-credentials { margin: 16px 16px 0; }
+  .modal-actions .button.users-delete-link { flex-basis: 100%; order: 3; }
+}

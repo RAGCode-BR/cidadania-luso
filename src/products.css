@@ -1,0 +1,27 @@
+/* Listas de Produtos e Usuários: uma linha por registro dentro de um painel. */
+.products-page { min-width: 0; }
+.products-panel { min-width: 0; overflow: hidden; }
+.products-panel > .error { margin: 16px; }
+.products-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 16px; padding: 16px; border-bottom: 1px solid var(--line); }
+.products-toolbar .field { flex: 1; max-width: 440px; margin: 0; }
+.products-toolbar > span { color: var(--muted); font-size: 14px; padding-bottom: 10px; white-space: nowrap; }
+.products-none { padding: 32px 16px; color: var(--muted); text-align: center; }
+.products-list { margin: 0; padding: 0; list-style: none; }
+.products-list > li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 24px; padding: 14px 12px 14px 20px; border-bottom: 1px solid var(--line); }
+.products-list > li:last-child { border-bottom: 0; }
+.products-main { display: grid; gap: 3px; min-width: 0; }
+.products-main strong { color: var(--ink); font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.products-main p { color: var(--muted); font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; max-width: 72ch; }
+.products-main small { color: var(--muted); font-size: 13px; }
+.products-price { color: var(--ink); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.products-price.empty { color: var(--muted); font-size: 14px; font-weight: 400; }
+.products-actions { display: flex; gap: 2px; }
+.products-note { margin: -4px 0 16px; padding: 10px 12px; border-radius: var(--radius-small); background: var(--green-soft); color: var(--green); font-size: 14px; }
+@media (max-width: 760px) {
+  .products-toolbar { flex-direction: column; align-items: stretch; padding: 12px; }
+  .products-toolbar .field { max-width: none; }
+  .products-toolbar > span { padding: 0; }
+  .products-list > li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 12px 6px 12px 14px; }
+  .products-price { grid-column: 1; grid-row: 2; text-align: left; font-size: 15px; }
+  .products-actions { grid-column: 2; grid-row: 1 / span 2; flex-direction: column; }
+}

@@ -1,6 +1,6 @@
-# Luso — CRM e Serviços
+# Luso — CRM e Produtos
 
-Aplicação React/Vite para oportunidades, visitas, vendas e serviços. Há dois modos:
+Aplicação React/Vite para acompanhar clientes, atendimentos e vendas (CRM) e para o cadastro de produtos. Há dois modos:
 
 - **Local:** sem variáveis de ambiente, usa IndexedDB neste navegador. Serve para desenvolvimento.
 - **Compartilhado:** com URL e chave pública do Supabase, exige login, senha e cadastro ativo na equipe antes de abrir o banco comum.
@@ -22,11 +22,11 @@ Abra <http://127.0.0.1:5180/>. `npm test`, `npm run test:ui` e `npm run build` f
 4. O sistema entra com **login e senha**, sem e-mail. Como o Supabase Auth só autentica por e-mail, cada login corresponde a um e-mail técnico `login@usuarios.luso.internal`, que não recebe mensagens e não aparece na interface. Logins usam de 3 a 40 caracteres: letras minúsculas sem acento, números, ponto, hífen ou sublinhado.
    - Em **Authentication → Sign In / Providers**, desligue **Allow new users to sign up**. Contas são criadas apenas pela administração.
    - Em **Authentication → Users → Add user → Create new user**, informe o e-mail técnico (ex.: `joao@usuarios.luso.internal` para o login `joao`), a senha e marque **Auto Confirm User**.
-   - No SQL Editor, autorize cada conta pelo e-mail técnico:
+   - Depois da primeira conta de administrador, crie as demais pela página **Usuários**. Para a primeira, no SQL Editor, autorize a conta pelo e-mail técnico e marque `is_admin = true`:
 
    ```sql
-   insert into public.luso_members (user_id, display_name)
-   select id, 'Nome exibido' from auth.users
+   insert into public.luso_members (user_id, display_name, login, is_admin)
+   select id, 'Nome exibido', 'joao', true from auth.users
    where email = 'joao@usuarios.luso.internal';
    ```
 
@@ -48,7 +48,25 @@ O banco usa uma revisão para impedir que uma gravação sobrescreva outra silen
 
 Se você já possui um arquivo de backup JSON da Luso, abra a versão compartilhada, entre com uma conta autorizada e clique em **Importar backup**. A importação só ocorre quando o banco compartilhado ainda está vazio. Depois, confira os totais e o fluxo principal em outro navegador.
 
-A importação não apaga o IndexedDB local. Fotos continuam embutidas no estado JSON; o banco limita esse estado a 10 MB. Antes de usar muitas fotos em produção, migre os arquivos para armazenamento de objetos e mantenha apenas referências no banco.
+A importação não apaga o IndexedDB local. O banco limita o estado JSON a 10 MB. Backups antigos, do tempo em que os cartões eram de obras, são convertidos automaticamente: o nome da obra vira o nome do cliente.
+
+## CRM
+
+Cada cartão do CRM é uma negociação com um **cliente** (nome obrigatório; telefone e e-mail opcionais). O mesmo cliente pode ter mais de um cartão. Em cada cartão a equipe registra **atendimentos** (data, forma de contato, tipo — prospecção, relacionamento ou fechamento —, produtos apresentados, produtos vendidos e anotações); um atendimento de fechamento registra a venda. Próximo passo, venda avulsa, encerramento e reabertura ficam nas ações do cartão.
+
+## Usuários
+
+Administradores veem a página **Usuários**, onde criam, editam (nome, login e perfil) e excluem contas. A conta nova recebe uma **senha temporária** (digitada ou gerada na tela) e, no primeiro acesso, a pessoa é obrigada a definir a própria senha antes de usar o sistema. Ao criar, marque **Administrador** se a pessoa também puder gerenciar usuários. Ninguém exclui a própria conta, e o sistema mantém ao menos um administrador. Excluir um usuário remove o login; o histórico registrado por ele continua no CRM.
+
+Criar, editar, excluir e definir a senha do primeiro acesso passam pela Edge Function [`luso-users`](supabase/functions/luso-users/index.ts), que usa a chave service role do próprio Supabase (nunca enviada ao navegador) e confere se quem chama é um membro ativo e administrador. Para publicar uma nova versão da função: `npx supabase functions deploy luso-users --project-ref <ref> --use-api` com `SUPABASE_ACCESS_TOKEN` definido. As colunas `login`, `is_admin` e `must_change_password` de `luso_members` estão em [supabase/schema.sql](supabase/schema.sql).
+
+Para quem esqueceu a senha, edite o usuário e marque **Redefinir senha**: a pessoa recebe uma nova senha temporária e define outra no próximo acesso. Ninguém redefine a própria senha nem remove o próprio perfil de administrador por essa tela.
+
+## Produtos
+
+A página **Produtos** cadastra, edita e exclui os produtos oferecidos aos clientes (nome único, descrição e preço de referência opcionais). Ao criar um cartão no CRM, os produtos cadastrados aparecem para seleção; nomes novos digitados no cartão também entram no cadastro.
+
+As oportunidades guardam o nome do produto. Renomear um produto atualiza os cartões do CRM; vendas, atendimentos e o histórico mantêm o nome da época. Excluir um produto apenas o retira do cadastro e da seleção de novos cartões: os cartões que já o citam continuam com ele. Recadastrar o mesmo nome reativa o produto excluído.
 
 ## GitHub e publicação
 
@@ -56,4 +74,4 @@ A importação não apaga o IndexedDB local. Fotos continuam embutidas no estado
 
 ## Limites atuais
 
-O estado compartilhado ainda é um único documento JSON, adequado para uma equipe pequena. Crescimento de dados, permissões diferentes por função, auditoria forte e fotos em volume exigem tabelas por entidade e Storage. Nenhuma conta, credencial ou foto de produção é incluída neste repositório.
+O estado compartilhado ainda é um único documento JSON, adequado para uma equipe pequena. Crescimento de dados, permissões diferentes por função, e auditoria forte exigem tabelas por entidade. Nenhuma conta ou credencial de produção é incluída neste repositório.
