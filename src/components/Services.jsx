@@ -3,11 +3,9 @@ import { addressLabel, catalogProducts, dateLabel, normalize, person, today } fr
 import { SERVICE_PERIODS, SERVICE_STATUSES, SERVICE_TYPES, changeServiceStatus, decideInstallation, deleteInstaller, newAppointment, newService, saleServiceDraft, saveInstaller, saveService, serviceCode, serviceSales, serviceWeek, shiftServiceDate } from "../lib/services.mjs";
 import { AddressFields, Badge, Empty, Field, Icon, Metric, Modal, Select } from "./ui.jsx";
 import ServiceDateField from "./ServiceDateField.jsx";
-import ServiceHistory from "./ServiceHistory.jsx";
 import Pagination from "./Pagination.jsx";
 import VisitPhoto from "./VisitPhoto.jsx";
 import { preparePhoto } from "../lib/photo.mjs";
-import { cloudEnabled } from "../lib/auth.mjs";
 import "../services.css";
 
 const statusTone = (status) => status === "completed" ? "success" : ["cancelled", "return_required"].includes(status) ? "red" : "blue";
@@ -58,7 +56,7 @@ export default function Services({ data, save, actor, seed }) {
   };
   return <div className="services-page">
     <div className="services-intro">
-      <div>{cloudEnabled ? <><span className="eyebrow">Pós-venda</span><p>Organize as instalações, a equipe e os retornos dos clientes.</p></> : <><span className="services-preview"><Icon name="info" size={15} />Prévia local</span><p>Agenda em avaliação. Registros salvos somente neste navegador.</p></>}</div>
+      <div><span className="eyebrow">Pós-venda</span><p>Organize as instalações, a equipe e os retornos dos clientes.</p></div>
       <button className="button primary" onClick={openNew}><Icon name="plus" size={18} />Novo serviço</button>
     </div>
     <div className="metrics services-metrics">
@@ -69,9 +67,9 @@ export default function Services({ data, save, actor, seed }) {
     </div>
     <section className="panel services-workspace">
       <div className="services-tabs" role="group" aria-label="Visualização dos serviços">
-        {[["agenda", "calendar", "Agenda"], ["list", "box", "Todos os serviços"], ["sales", "trend", "Vendas para instalação"], ["team", "users", "Equipe de execução"], ["history", "clock", "Histórico importado"]].map(([id, icon, label]) => <button key={id} aria-label={label} className={`button ${view === id ? "primary" : "secondary"}`} aria-pressed={view === id} onClick={() => setView(id)}><Icon name={icon} size={17} />{label}{id === "sales" && pendingSales.length > 0 && <span className="services-count">{pendingSales.length}</span>}</button>)}
+        {[["agenda", "calendar", "Agenda"], ["list", "box", "Todos os serviços"], ["sales", "trend", "Vendas para instalação"], ["team", "users", "Equipe de execução"]].map(([id, icon, label]) => <button key={id} aria-label={label} className={`button ${view === id ? "primary" : "secondary"}`} aria-pressed={view === id} onClick={() => setView(id)}><Icon name={icon} size={17} />{label}{id === "sales" && pendingSales.length > 0 && <span className="services-count">{pendingSales.length}</span>}</button>)}
       </div>
-      {!["team", "history"].includes(view) && <div className="services-filters">
+      {view !== "team" && <div className="services-filters">
         <Field label="Buscar serviços ou vendas" placeholder="Cliente, obra, bairro, produto ou SV…" value={query} onChange={(event) => setQuery(event.target.value)} />
         {view === "sales" ? <Select label="Vendas exibidas" value={salesFilter} onChange={setSalesFilter}><option value="pending">Aguardando avaliação</option><option value="all">Todas as vendas</option></Select> : <>
           <Select label="Profissional" value={installer} onChange={setInstaller}><option value="">Toda a equipe</option>{(data.installers || []).map((row) => <option key={row.id} value={row.id}>{row.name}{row.deleted ? " (excluído)" : row.inactive ? " (inativo)" : ""}</option>)}</Select>
@@ -111,7 +109,6 @@ export default function Services({ data, save, actor, seed }) {
         })}</tbody></table></div><Pagination page={currentPage} totalItems={visibleSales.length} pageSize={12} onChange={setPage} itemLabel="vendas para instalação" /></> : <Empty title={salesFilter === "pending" ? "Nenhuma venda aguardando avaliação" : "Nenhuma venda encontrada"} description="Os fechamentos registrados no CRM e nas visitas aparecerão aqui para avaliar a instalação." icon="trend" />}
       </div>}
       {view === "team" && <InstallerManager data={data} save={save} />}
-      {view === "history" && <ServiceHistory data={data} />}
     </section>
     {editor && <ServiceForm key={editor.id || editor.saleId || "new"} initial={editor} data={data} save={save} actor={actor} onClose={() => setEditor(null)} onSaved={(record) => { setEditor(null); setDetailId(record.id); }} />}
     {selected && !editor && !action && <ServiceDetail item={selected} data={data} onClose={() => setDetailId(null)} onEdit={() => setEditor(structuredClone(selected))} onAction={(status) => setAction({ id: selected.id, status })} />}

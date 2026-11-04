@@ -13,7 +13,7 @@ function openDatabase() {
   });
   return connection;
 }
-const initial = () => ({ ...emptyData(), crm: emptyCrm(), services: [], installers: [], serviceDecisions: {}, nextInstallationNumber: 1, serviceHistory: [], serviceHistoryImports: [] });
+const initial = () => ({ ...emptyData(), crm: emptyCrm(), services: [], installers: [], serviceDecisions: {}, nextInstallationNumber: 1 });
 const withRevision = (state, revision) => {
   Object.defineProperty(state, "__revision", { value: revision, enumerable: false });
   return state;
@@ -72,7 +72,7 @@ export const repository = {
   async importBackupIfEmpty(backup) {
     if (!cloudEnabled) throw new Error("A importação exige o banco compartilhado.");
     if (!backup || backup.version !== 1 || !Array.isArray(backup.works) || !Array.isArray(backup.visits) ||
-      !Array.isArray(backup.products) || !Array.isArray(backup.contacts) || !Array.isArray(backup.plans) ||
+      !Array.isArray(backup.products) ||
       !backup.crm || !Array.isArray(backup.crm.opportunities) || !Array.isArray(backup.crm.sales) ||
       !Array.isArray(backup.services) || !Array.isArray(backup.installers))
       throw new Error("Este arquivo não é um backup válido da Luso.");

@@ -8,6 +8,7 @@ import { newVisit, normalize, productName, productNames, recordVisit, today, uid
 import { preparePhoto } from "./lib/photo.mjs";
 import { repository } from "./lib/repository.mjs";
 import { cloud, cloudEnabled, memberFor, signedInUser } from "./lib/cloud.mjs";
+import { authErrorMessage, loginEmail } from "./lib/login.mjs";
 import "./styles.css";
 import "./readability.css";
 import "./luso.css";
@@ -111,19 +112,6 @@ function App() {
     const next = recordVisit(current, draft);
     return reconcileLocalCrm(next, actor);
   }), [commit, actor]);
-  const backup = async () => {
-    setError("");
-    try {
-      const state = await repository.load();
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `luso-backup-${today()}.json`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (cause) { setError(cause.message); }
-  };
   const importBackup = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -151,11 +139,11 @@ function App() {
         <button className={page === "crm" ? "active" : ""} onClick={() => navigate("crm")}><Icon name="kanban" /><span>CRM</span></button>
         <button className={page === "services" ? "active" : ""} onClick={() => navigate("services")}><Icon name="tools" /><span>Serviços</span></button>
       </nav>
-      <div className="luso-side-note">{cloudEnabled ? `Conectado: ${actor.name}` : "Seus dados ficam neste navegador."}</div>
+      {cloudEnabled && <div className="luso-side-note">Conectado: {actor.name}</div>}
     </aside>
     {mobileMenu && <button className="luso-menu-backdrop" aria-label="Fechar navegação" onClick={() => setMobileMenu(false)} />}
     <div className="workspace">
-      <header className="topbar"><div className="breadcrumb"><button className="menu-toggle" aria-label="Abrir navegação" onClick={() => setMobileMenu(true)}><Icon name="menu" /></button><span>Luso</span><Icon name="chevron" size={15} /><strong>{page === "crm" ? "CRM" : "Serviços"}</strong></div><div className="luso-tools"><span className="luso-local-badge">{cloudEnabled ? "Banco compartilhado" : "Armazenamento local"}</span><button className="button secondary" onClick={backup}>Baixar backup</button>{cloudEnabled && <label className="button secondary luso-import">Importar backup<input type="file" accept="application/json,.json" onChange={importBackup} /></label>}{cloudEnabled && <button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button>}</div></header>
+      <header className="topbar"><div className="breadcrumb"><button className="menu-toggle" aria-label="Abrir navegação" onClick={() => setMobileMenu(true)}><Icon name="menu" /></button><span>Luso</span><Icon name="chevron" size={15} /><strong>{page === "crm" ? "CRM" : "Serviços"}</strong></div>{cloudEnabled && <div className="luso-tools"><label className="button secondary luso-import">Importar backup<input type="file" accept="application/json,.json" onChange={importBackup} /></label><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></div>}</header>
       <main id="main-content">{error && <p className="error" role="alert">{error}</p>}<div className="page-header"><div><span className="eyebrow">LUSO</span><h1>{page === "crm" ? "Oportunidades em movimento." : "Da venda à entrega."}</h1><p>{page === "crm" ? "Acompanhe negociações, fechamentos e próximos passos." : "Organize instalações, equipe e retornos."}</p></div></div>
         {page === "crm" ? <Crm data={data} actorId={actor.teamId} account={actor} onAction={crmAction} onCreate={createCard} onColumns={columns} onLabels={labels} onVisit={setVisitTarget} onServices={(saleId) => { setServiceSeed({ saleId, nonce: Date.now() }); navigate("services"); }} /> : <Services data={data} save={saveServices} actor={actor.name} seed={serviceSeed} />}
       </main>
@@ -166,7 +154,7 @@ function App() {
 }
 
 function Login() {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -175,16 +163,16 @@ function Login() {
     setBusy(true);
     setError("");
     try {
-      const { error: cause } = await cloud.auth.signInWithPassword({ email: email.trim(), password });
+      const { error: cause } = await cloud.auth.signInWithPassword({ email: loginEmail(login), password });
       if (cause) throw cause;
-    } catch (cause) { setError(cause.message); }
+    } catch (cause) { setError(authErrorMessage(cause)); }
     finally { setBusy(false); }
   };
   return <main className="luso-login-screen"><div className="luso-login-card">
     <img className="luso-login-logo" src={logoUrl} alt="Cidadania Luso Italiana Assessoria" />
     <h1>Acesse sua conta</h1><p>Entre para acompanhar o CRM e os serviços da Luso.</p>
     <form onSubmit={submit} className="luso-login-form">
-      <Field label="E-mail" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+      <Field label="Login" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={40} value={login} onChange={(event) => setLogin(event.target.value)} required />
       <Field label="Senha" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       {error && <p className="error" role="alert">{error}</p>}
       <button className="button primary" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>

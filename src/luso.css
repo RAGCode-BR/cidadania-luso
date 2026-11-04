@@ -9,7 +9,6 @@
 .luso-app .sidebar nav button:hover, .luso-app .sidebar nav button.active { background: #176748; color: #fff; }
 .luso-app .sidebar nav button.active::before { display: none; }
 .luso-side-note { margin: auto 18px 26px; padding: 15px 10px 0; border-top: 1px solid #3e604f; font-size: 11px; line-height: 1.6; color: #9bbcab; }
-.luso-local-badge { border: 1px solid #e4ece8; border-radius: 20px; padding: 7px 12px; font-size: 11px; color: #617f70; white-space: nowrap; }
 .luso-menu-backdrop { display: none; }
 .luso-startup { min-height: 100vh; display: grid; place-content: center; gap: 15px; padding: 30px; text-align: center; }
 .luso-login-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--brand-green); }
@@ -28,7 +27,6 @@
 .luso-visit-form { display: grid; gap: 18px; }
 .luso-visit-form > p { color: #6e8f7f; }
 .luso-visit-form .crm-product-options { margin: 0; }
-.luso-app .services-intro .services-preview { color: #5d8873; }
 .luso-app .crm-shared { text-transform: none; }
 .luso-app .page-header p,
 .luso-app .crm-intro p,
@@ -53,5 +51,4 @@
   .luso-app .topbar { height: auto; min-height: 82px; padding: 12px 18px; flex-wrap: wrap; }
   .luso-tools { width: 100%; justify-content: flex-start; }
   .luso-tools .button { font-size: 12px; }
-  .luso-local-badge { font-size: 10px; }
 }

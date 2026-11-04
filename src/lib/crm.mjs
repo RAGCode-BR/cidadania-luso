@@ -1,13 +1,4 @@
-import {
-  TEAM,
-  contactOrigin,
-  normalize,
-  productNames,
-  person,
-  today,
-  uid,
-  filterVisits,
-} from "./domain.mjs";
+import { TEAM, normalize, person, today, uid } from "./domain.mjs";
 
 export const CRM_STAGES = {
   prospecting: "Em prospecção",
@@ -126,53 +117,11 @@ export function createCrmOpportunity(current, work, actor, { stage, at = new Dat
   return crm;
 }
 
-export function assignCrmSeller(current, work, sellerId, actor, at = new Date().toISOString()) {
-  ensure(team(sellerId), "Selecione um vendedor válido.");
-  let crm = structuredClone(current || emptyCrm());
-  let item = crm.opportunities.find((row) =>
-    row.id === work.crmOpportunityId || row.primaryWorkId === work.id || row.workKey === crmWorkKey(work),
-  );
-  if (item && !item.deleted && item.responsibleId !== sellerId)
-    ensure(["admin", "supervisor"].includes(actor.role),
-      "Somente Túlio e a administração podem alterar o vendedor de uma oportunidade existente.", 403);
-  if (!item || item.deleted) {
-    crm = createCrmOpportunity(crm, work, actor, { at });
-    item = crm.opportunities.find((row) =>
-      row.primaryWorkId === work.id || row.workKey === crmWorkKey(work),
-    );
-  }
-  if (item.responsibleId !== sellerId) {
-    const previousResponsibleId = item.responsibleId;
-    item.responsibleId = sellerId;
-    item.version++;
-    item.updatedAt = at;
-    activity(crm, item, actor, "updated", {
-      from: item.stage,
-      to: item.stage,
-      previousResponsibleId,
-      responsibleId: sellerId,
-      nextAction: item.nextAction,
-      nextDate: item.nextDate,
-      note: "Vendedor responsável definido para a obra.",
-    }, at);
-  }
-  return crm;
-}
-
 // O histórico é decrescente. Visita e venda do mesmo salvamento aparecem
 // como visita → venda, sem alterar a sequência persistida nem vendas anteriores.
 export function crmTimeline(activities, opportunityId) {
-  const deletedVisits = new Set(
-    activities
-      .filter((event) => event.type === "visit_deleted")
-      .map((event) => event.sourceVisitId),
-  );
   const events = activities
-    .filter(
-      (event) =>
-        event.opportunityId === opportunityId &&
-        !(event.type === "visit" && deletedVisits.has(event.sourceVisitId)),
-    )
+    .filter((event) => event.opportunityId === opportunityId)
     .sort((a, b) => b.sequence - a.sequence);
   for (let index = 0; index < events.length - 1; index++) {
     const visit = events[index];
@@ -246,10 +195,6 @@ export function crmWorkSnapshot(work, visit = {}) {
       "type",
       "responsible",
       "phone",
-      "architectId",
-      "contractorId",
-      "architectName",
-      "contractorName",
     ].map((key) => [
       key,
       String(
@@ -282,7 +227,6 @@ function addSale(
   actor,
   at,
   sourceVisitId = null,
-  historical = false,
 ) {
   ensure(
     Array.isArray(input.products) &&
@@ -301,13 +245,12 @@ function addSale(
     Number.isFinite(value) && value >= 0 && value <= 1_000_000_000,
     "Informe um valor de venda válido.",
   );
-  if (!historical)
-    ensure(
-      input.products.every((name) =>
-        opportunity.pendingProducts.includes(name),
-      ),
-      "Um produto já foi vendido ou não está nesta negociação. Confira a oportunidade antes de salvar.",
-    );
+  ensure(
+    input.products.every((name) =>
+      opportunity.pendingProducts.includes(name),
+    ),
+    "Um produto já foi vendido ou não está nesta negociação. Confira a oportunidade antes de salvar.",
+  );
   const sale = {
     id: uid(),
     opportunityId: opportunity.id,
@@ -366,10 +309,10 @@ export function recordCrmVisit(
   visit,
   work,
   actor,
-  { at = new Date().toISOString(), historical = false } = {},
+  { at = new Date().toISOString() } = {},
 ) {
   const crm = structuredClone(current || emptyCrm());
-  const source = contactOrigin(visit);
+  const source = "visit";
   const linked = crm.visitLinks.find((item) => item.visitId === visit.id);
   if (linked) return { crm, opportunityId: linked.opportunityId };
   const enabled =
@@ -432,9 +375,7 @@ export function recordCrmVisit(
       "created",
       {
         sourceVisitId: visit.id,
-        note: historical
-          ? "Oportunidade criada a partir do histórico de visitas."
-          : source === "lead" ? "Oportunidade aberta em contato telefônico." : "Oportunidade aberta nesta visita.",
+        note: "Oportunidade aberta nesta visita.",
         source,
       },
       at,
@@ -442,10 +383,10 @@ export function recordCrmVisit(
   }
   if (opportunity.source === "manual") opportunity.source = source;
   opportunity.sources = [...new Set([...(opportunity.sources || [opportunity.source || "visit"]), source])];
-  if (!historical && visit.sellerId && opportunity.responsibleId !== visit.sellerId) {
-    const mayReassign = ["admin", "supervisor"].includes(actor.role);
+  if (visit.sellerId && opportunity.responsibleId !== visit.sellerId) {
+    const mayReassign = actor.role === "admin";
     if (!mayReassign && requestedId)
-      ensure(false, "Somente Túlio e a administração podem alterar o vendedor de uma oportunidade existente.", 403);
+      ensure(false, "Somente a administração pode alterar o vendedor de uma oportunidade existente.", 403);
     if (mayReassign) {
       ensure(team(visit.sellerId), "Selecione um vendedor válido.");
       const previousResponsibleId = opportunity.responsibleId;
@@ -461,7 +402,7 @@ export function recordCrmVisit(
       }, at);
     }
   }
-  if (!historical && visit.sold.length && !visit.crmSaleId) {
+  if (visit.sold.length && !visit.crmSaleId) {
     ensure(
       !closed(opportunity),
       "Esta obra já teve a negociação encerrada. Vincule a venda já registrada ou reabra a oportunidade no CRM para uma nova negociação.",
@@ -472,11 +413,10 @@ export function recordCrmVisit(
     );
   }
   if (
-    (closed(opportunity) &&
-      visit.offered.length &&
-      !visit.crmSaleId &&
-      !visit.sold.length) ||
-    (historical && closed(opportunity) && visit.offered.length)
+    closed(opportunity) &&
+    visit.offered.length &&
+    !visit.crmSaleId &&
+    !visit.sold.length
   ) {
     opportunity.cycle++;
     opportunity.products = [];
@@ -489,7 +429,7 @@ export function recordCrmVisit(
       opportunity,
       actor,
       "reopened",
-      { note: source === "lead" ? "Novo contato telefônico registrado." : "Nova prospecção registrada em uma visita.", source },
+      { note: "Nova prospecção registrada em uma visita.", source },
       at,
     );
   }
@@ -552,7 +492,6 @@ export function recordCrmVisit(
       actor,
       at,
       visit.id,
-      historical,
     );
   }
   if (
@@ -565,8 +504,6 @@ export function recordCrmVisit(
   }
   if (!closed(opportunity) && visit.nextAction?.trim())
     opportunity.nextAction = visit.nextAction.trim();
-  if (!closed(opportunity) && visit.scheduleNext && visit.nextDate)
-    opportunity.nextDate = visit.nextDate;
   opportunity.version++;
   opportunity.updatedAt = at;
   crm.visitLinks.push({
@@ -592,39 +529,6 @@ export function recordCrmVisit(
     at,
   );
   return { crm, opportunityId: opportunity.id };
-}
-
-export function markCrmVisitDeleted(
-  current,
-  visitId,
-  actor,
-  at = new Date().toISOString(),
-) {
-  const crm = structuredClone(current || emptyCrm());
-  const link = crm.visitLinks.find((item) => item.visitId === visitId);
-  if (!link || link.deleted) return crm;
-  link.deleted = true;
-  const opportunity = crm.opportunities.find(
-    (item) => item.id === link.opportunityId,
-  );
-  if (!opportunity) return crm;
-  opportunity.lastVisitDate =
-    crm.visitLinks
-      .filter((item) => item.opportunityId === opportunity.id && !item.deleted)
-      .map((item) => item.date)
-      .sort()
-      .at(-1) || "";
-  opportunity.version++;
-  opportunity.updatedAt = at;
-  activity(
-    crm,
-    opportunity,
-    actor,
-    "visit_deleted",
-    { sourceVisitId: visitId },
-    at,
-  );
-  return crm;
 }
 
 export function applyCrmAction(
@@ -655,7 +559,7 @@ export function applyCrmAction(
       "Reabra a oportunidade antes de registrar outra venda.",
     );
     ensure(
-      ["admin", "supervisor"].includes(actor.role) || actor.teamId === input.sellerTeamId,
+      actor.role === "admin" || actor.teamId === input.sellerTeamId,
       "A venda deve ficar no seu nome. A administração pode registrar para outro colaborador.",
       403,
     );
@@ -673,8 +577,8 @@ export function applyCrmAction(
     ensure(team(input.responsibleId), "Selecione o responsável atual.");
     ensure(
       item.responsibleId === input.responsibleId ||
-        ["admin", "supervisor"].includes(actor.role),
-      "Somente Túlio e a administração podem alterar o vendedor responsável no CRM.",
+        actor.role === "admin",
+      "Somente a administração pode alterar o vendedor responsável no CRM.",
       403,
     );
     const nextAction = text(input.nextAction || "");
@@ -782,7 +686,7 @@ export function applyCrmAction(
   return crm;
 }
 
-export function reconcileLocalCrm(data, actor, historical = false) {
+export function reconcileLocalCrm(data, actor) {
   let crm = data.crm || emptyCrm();
   let works = [...data.works];
   for (const visit of data.visits) {
@@ -794,7 +698,6 @@ export function reconcileLocalCrm(data, actor, historical = false) {
       visit,
       work,
       actor || { name: person(visit.userId), teamId: visit.userId },
-      { historical },
     );
     crm = result.crm;
     if (result.opportunityId)
@@ -805,30 +708,6 @@ export function reconcileLocalCrm(data, actor, historical = false) {
       );
   }
   return { ...data, crm, works };
-}
-
-export function canSeeCrmOpportunity(crm, opportunity, member) {
-  if (!opportunity) return false;
-  if (!member || ["admin", "supervisor"].includes(member.role)) return true;
-  return opportunity.prospectorId === member.teamId ||
-    opportunity.responsibleId === member.teamId ||
-    crm.visitLinks.some((link) =>
-      link.opportunityId === opportunity.id &&
-      link.userId === member.teamId && !link.deleted);
-}
-
-export function visibleCrm(crm, member) {
-  if (!member || ["admin", "supervisor"].includes(member.role)) return crm;
-  const ids = new Set(crm.opportunities
-    .filter((item) => canSeeCrmOpportunity(crm, item, member))
-    .map((item) => item.id));
-  return {
-    ...crm,
-    opportunities: crm.opportunities.filter((item) => ids.has(item.id)),
-    activities: crm.activities.filter((item) => ids.has(item.opportunityId)),
-    sales: crm.sales.filter((item) => ids.has(item.opportunityId)),
-    visitLinks: crm.visitLinks.filter((item) => ids.has(item.opportunityId)),
-  };
 }
 
 // Um fechamento vinculado à visita entra apenas uma vez no consolidado.
@@ -851,7 +730,7 @@ export function businessSales(data) {
         sourceVisitId: visit.id,
         sellerTeamId: visit.userId,
         prospectorId: visit.userId,
-        source: contactOrigin(visit),
+        source: "visit",
         date: visit.date,
         products: visit.sold,
         value: visit.saleValue,
@@ -859,24 +738,4 @@ export function businessSales(data) {
         registeredBy: person(visit.userId),
       })),
   ];
-}
-export function filterBusinessSales(sales, filters) {
-  return sales.filter(
-    (sale) =>
-      (!filters.source || (sale.source || "visit") === filters.source) &&
-      filterVisits(
-        [
-          {
-            ...sale.work,
-            date: sale.date,
-            userId: sale.sellerTeamId,
-            offered: sale.products,
-            sold: sale.products,
-            stage: "closing",
-            source: sale.source || "visit",
-          },
-        ],
-        { ...filters, source: "" },
-      ).length,
-  );
 }

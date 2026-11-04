@@ -17,7 +17,7 @@ create table if not exists public.luso_workspace (
 );
 alter table public.luso_workspace add column if not exists updated_by uuid references auth.users(id);
 
-insert into public.luso_workspace (id, state) values (1, '{"version":1,"products":[],"works":[],"contacts":[],"visits":[],"plans":[],"crm":{"opportunities":[],"activities":[],"sales":[],"visitLinks":[],"stageLabels":{"prospecting":"Em prospecção","waiting":"Aguardando retorno","negotiating":"Em negociação","won":"Venda realizada","lost":"Sem negócio"},"stageOrder":["prospecting","waiting","negotiating","won","lost"]},"services":[],"installers":[],"serviceDecisions":{},"nextInstallationNumber":1,"serviceHistory":[],"serviceHistoryImports":[]}'::jsonb)
+insert into public.luso_workspace (id, state) values (1, '{"version":1,"products":[],"works":[],"visits":[],"crm":{"opportunities":[],"activities":[],"sales":[],"visitLinks":[],"stageLabels":{"prospecting":"Em prospecção","waiting":"Aguardando retorno","negotiating":"Em negociação","won":"Venda realizada","lost":"Sem negócio"},"stageOrder":["prospecting","waiting","negotiating","won","lost"]},"services":[],"installers":[],"serviceDecisions":{},"nextInstallationNumber":1}'::jsonb)
 on conflict (id) do nothing;
 
 alter table public.luso_members enable row level security;

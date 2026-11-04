@@ -1,12 +1,10 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { normalize, uid } from "../lib/domain.mjs";
 
 const paths = {
   tools: "M14 6a5 5 0 0 0-6 6L3 17a3 3 0 0 0 4 4l5-5a5 5 0 0 0 6-6l-3 3-4-4 3-3Z",
   kanban:
     "M3 4h18v16H3z M9 4v16 M15 4v16 M5 8h2 M11 8h2 M17 8h2 M5 12h2 M11 12h2",
-  grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
   plus: "M12 5v14 M5 12h14",
   visit:
     "M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
@@ -31,15 +29,11 @@ const paths = {
   "move-up": "M12 19V5 M6 11l6-6 6 6",
   "move-down": "M12 5v14 M6 13l6 6 6-6",
   grip: "M9 5h.01 M15 5h.01 M9 12h.01 M15 12h.01 M9 19h.01 M15 19h.01",
-  download: "M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5",
-  print: "M6 9V3h12v6 M6 17H3V9h18v8h-3 M6 14h12v7H6z M17 12h1",
   trend: "m3 17 6-6 4 4 8-10 M15 5h6v6",
   clock: "M12 8v5l3 2 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z",
   edit: "m16 3 5 5-12 12-6 1 1-6L16 3Z m-2 2 5 5",
   trash: "M3 6h18 M9 6V3h6v3 M5 6l1 15h12l1-15 M10 10v7 M14 10v7",
-  info: "M12 11v6 M12 7h.01 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z",
   phone: "m5 3 4 4-2 3a16 16 0 0 0 7 7l3-2 4 4c-1 5-7 3-12-1S1 5 5 3Z",
-  bell: "M18 8a6 6 0 0 0-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10Z M10 21h4",
 };
 export function Icon({ name, size = 20, ...props }) {
   return (
@@ -177,304 +171,6 @@ export function Modal({ title, onClose, children, wide = false }) {
     document.body,
   );
 }
-export function ContactForm({ initial, role, data, save, onClose, onCreated }) {
-  const [form, setForm] = useState(
-    initial || {
-      name: "",
-      role: role || "contractor",
-      phone: "",
-      phone2: "",
-      city: "",
-      company: "",
-      notes: "",
-    },
-  );
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const change = (key) => (event) =>
-    setForm({ ...form, [key]: event.target.value });
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    if (!form.name.trim()) return setError("Informe o nome do contato.");
-    const duplicate = data.contacts.find(
-      (item) =>
-        !item.deleted &&
-        normalize(item.name) === normalize(form.name) &&
-        item.role === form.role &&
-        item.id !== form.id,
-    );
-    if (duplicate)
-      return setError(
-        "Já existe um contato com esse nome e essa função. Selecione-o na lista.",
-      );
-    setBusy(true);
-    try {
-      const contact = { ...form, name: form.name.trim(), id: form.id || uid() };
-      await save((current) => {
-        if (
-          form.id &&
-          current.contacts.find((item) => item.id === form.id)?.deleted
-        )
-          throw new Error("Este contato já foi excluído.");
-        return {
-          ...current,
-          contacts: form.id
-            ? current.contacts.map((item) =>
-                item.id === form.id ? contact : item,
-              )
-            : [...current.contacts, contact],
-        };
-      }, "Contato salvo.");
-      onCreated?.(contact);
-      onClose();
-    } catch (cause) {
-      setError(cause.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      title={form.id ? "Editar contato" : "Novo contato"}
-      onClose={onClose}
-    >
-      <form onSubmit={submit}>
-        <Field
-          label="Nome completo"
-          value={form.name}
-          onChange={change("name")}
-          required
-          maxLength={180}
-          autoFocus
-        />
-        <Select
-          label="Função"
-          value={form.role}
-          onChange={(role) => setForm({ ...form, role })}
-        >
-          <option value="contractor">Empreiteiro</option>
-          <option value="architect">Arquiteto</option>
-          <option value="responsible">Responsável pela obra</option>
-        </Select>
-        <div className="fields two">
-          <Field
-            label="Telefone"
-            value={form.phone}
-            onChange={change("phone")}
-            type="tel"
-            maxLength={25}
-          />
-          <Field
-            label="Segundo telefone"
-            value={form.phone2 || ""}
-            onChange={change("phone2")}
-            type="tel"
-            maxLength={25}
-          />
-        </div>
-        <div className="fields two">
-          <Field
-            label="Empresa / escritório"
-            value={form.company}
-            onChange={change("company")}
-            maxLength={180}
-          />
-          <Field
-            label="Cidade"
-            value={form.city || ""}
-            onChange={change("city")}
-            maxLength={180}
-          />
-        </div>
-        <Field label="Observações">
-          <textarea
-            value={form.notes}
-            onChange={change("notes")}
-            maxLength={2000}
-          />
-        </Field>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        <footer className="modal-actions">
-          <button type="button" className="button secondary" onClick={onClose}>
-            Cancelar
-          </button>
-          <button className="button primary" disabled={busy}>
-            {busy ? "Salvando…" : "Salvar contato"}
-          </button>
-        </footer>
-      </form>
-    </Modal>
-  );
-}
-
-// Busca com teclado e seleção derivada do componente SearchableClientSelect do projeto de referência.
-export function ContactPicker({
-  label,
-  role,
-  value,
-  onChange,
-  query,
-  onQuery,
-  data,
-  save,
-}) {
-  const [open, setOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [active, setActive] = useState(-1);
-  const id = useId();
-  const inputId = useId();
-  const root = useRef(null);
-  const contacts = useMemo(
-    () =>
-      data.contacts
-        .filter(
-          (item) =>
-            !item.deleted &&
-            item.role === role &&
-            normalize(item.name).includes(normalize(query)),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [data.contacts, role, query],
-  );
-  useEffect(() => {
-    const close = (event) => {
-      if (!root.current?.contains(event.target)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, []);
-  const choose = (item) => {
-    onChange(item.id, item.name);
-    setOpen(false);
-    setActive(-1);
-  };
-  return (
-    <div className="field contact-picker" ref={root}>
-      <label htmlFor={inputId}>{label}</label>
-      <div className="contact-input">
-        <input
-          id={inputId}
-          role="combobox"
-          aria-autocomplete="list"
-          aria-controls={id}
-          aria-expanded={open}
-          aria-activedescendant={
-            open && contacts[active] ? `${id}-${active}` : undefined
-          }
-          placeholder="Busque ou digite um nome"
-          value={query}
-          autoComplete="off"
-          maxLength={180}
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            onQuery(event.target.value);
-            onChange("", event.target.value);
-            setOpen(true);
-            setActive(-1);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown") {
-              event.preventDefault();
-              setOpen(true);
-              setActive((index) => Math.min(index + 1, contacts.length - 1));
-            }
-            if (event.key === "ArrowUp") {
-              event.preventDefault();
-              setActive((index) => Math.max(index - 1, 0));
-            }
-            if (event.key === "Escape") {
-              setOpen(false);
-              event.stopPropagation();
-            }
-            if (event.key === "Enter") {
-              event.preventDefault();
-              if (open && contacts[active]) choose(contacts[active]);
-            }
-            if (event.key === "Tab") setOpen(false);
-          }}
-        />
-        <button
-          type="button"
-          className="icon-button"
-          aria-label={`Abrir opções de ${label.toLowerCase()}`}
-          onClick={() => setOpen(!open)}
-        >
-          <Icon name="down" size={16} />
-        </button>
-        <button
-          type="button"
-          className="add-contact"
-          aria-label={`Cadastrar ${label.toLowerCase()}`}
-          onClick={() => {
-            setAdding(true);
-            setOpen(false);
-          }}
-        >
-          <Icon name="plus" size={17} />
-        </button>
-      </div>
-      {open && (
-        <div
-          className="contact-options"
-          role="listbox"
-          id={id}
-          aria-label={`${label}: contatos encontrados`}
-        >
-          {contacts.length ? (
-            contacts.map((item, index) => (
-              <button
-                type="button"
-                role="option"
-                id={`${id}-${index}`}
-                aria-selected={value === item.id}
-                className={index === active ? "active" : ""}
-                key={item.id}
-                onClick={() => choose(item)}
-              >
-                {item.name}
-                <small>
-                  {item.city ||
-                    item.company ||
-                    (role === "architect" ? "Arquiteto" : "Empreiteiro")}
-                </small>
-              </button>
-            ))
-          ) : (
-            <p>Nenhum contato encontrado.</p>
-          )}
-          <button
-            type="button"
-            className="create-option"
-            onClick={() => {
-              setAdding(true);
-              setOpen(false);
-            }}
-          >
-            <Icon name="plus" size={16} />
-            Cadastrar {query ? `“${query}”` : "novo contato"}
-          </button>
-        </div>
-      )}
-      <small>Selecione um contato ou use + para cadastrar.</small>
-      {adding && (
-        <ContactForm
-          role={role}
-          initial={{ name: query, role, phone: "", company: "", notes: "" }}
-          data={data}
-          save={save}
-          onClose={() => setAdding(false)}
-          onCreated={choose}
-        />
-      )}
-    </div>
-  );
-}
-
 export function AddressFields({ value, onChange, requireState = true }) {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -612,7 +308,6 @@ export function AddressFields({ value, onChange, requireState = true }) {
           value={value.neighborhood}
           onChange={change("neighborhood")}
           required
-          placeholder="Essencial para os relatórios"
           maxLength={100}
         />
         <Field

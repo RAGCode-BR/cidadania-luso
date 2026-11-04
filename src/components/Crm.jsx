@@ -3,17 +3,13 @@ import {
   CRM_STAGES,
   crmStageOrder,
   crmActiveStageIds,
-  businessSales,
   crmTimeline,
   emptyCrm,
-  filterBusinessSales,
 } from "../lib/crm.mjs";
 import {
   TEAM,
-  contactOrigin,
   originLabel,
   addressLabel,
-  csvCell,
   dateLabel,
   money,
   normalize,
@@ -39,9 +35,7 @@ export default function Crm({
   onColumns,
   onLabels,
   onVisit,
-  onNew,
   onServices,
-  focus,
 }) {
   const crm = data.crm || emptyCrm();
   const labels = { ...CRM_STAGES, ...crm.stageLabels };
@@ -53,11 +47,6 @@ export default function Crm({
   const [returns, setReturns] = useState("");
   const [mobileStage, setMobileStage] = useState("prospecting");
   const [dialog, setDialog] = useState(null);
-  useEffect(() => {
-    if (!focus?.id) return;
-    const item = crm.opportunities.find((row) => row.id === focus.id && !row.deleted);
-    if (item) setDialog({ id: item.id, type: active(item) ? "update" : "details", stage: item.stage, version: item.version });
-  }, [focus?.nonce]);
   const [addingCard, setAddingCard] = useState(false);
   const [addingColumn, setAddingColumn] = useState(false);
   const [reorderingColumns, setReorderingColumns] = useState(false);
@@ -91,8 +80,6 @@ export default function Crm({
           item.work.phone,
           item.work.neighborhood,
           item.work.city,
-          item.work.architectName,
-          item.work.contractorName,
           ...item.products,
         ].join(" "),
       ).includes(normalize(query)),
@@ -162,12 +149,12 @@ export default function Crm({
         <div>
           <span className="crm-shared">
             <Icon name="users" size={15} />
-            {account?.role === "collaborator" ? "Suas prospecções e vendas" : "Visão da equipe"}
+            Visão da equipe
           </span>
         </div>
         <div className="crm-intro-actions">
           <button className="button secondary" onClick={() => setAddingCard(true)}>Adicionar cartão</button>
-          {(!account || ["admin", "supervisor"].includes(account.role)) && (
+          {(!account || account.role === "admin") && (
             <>
               <button className="button secondary" onClick={() => setAddingColumn(true)}><Icon name="plus" size={16} />Adicionar coluna</button>
               <button className="button secondary" onClick={() => setReorderingColumns(true)}><Icon name="reorder" size={16} />Reordenar colunas</button>
@@ -261,7 +248,6 @@ export default function Crm({
           <Select label="Origem da oportunidade" value={origin} onChange={setOrigin}>
             <option value="">Todas as origens</option>
             <option value="visit">Visita à obra</option>
-            <option value="lead">Telefone</option>
             <option value="manual">Obra cadastrada</option>
           </Select>
           {view === "closed" ? (
@@ -354,7 +340,7 @@ export default function Crm({
                       <span className="crm-column-title">
                         <i />
                         {label}
-                        {(!account || ["admin", "supervisor"].includes(account.role)) && (
+                        {(!account || account.role === "admin") && (
                           <>
                             <button type="button" className="crm-column-edit"
                               aria-label={`Renomear coluna ${label}`} title={`Renomear coluna ${label}`}
@@ -424,7 +410,7 @@ export default function Crm({
                               >
                                 {item.work.type}
                               </Badge>
-                              <span className="crm-origin">{item.sources?.includes("lead") && item.sources?.includes("visit") ? "Telefone + visita" : originLabel(item.source)}</span>
+                              <span className="crm-origin">{originLabel(item.source)}</span>
                               {item.completedProducts.length > 0 &&
                                 active(item) && (
                                   <span className="crm-partial">
@@ -445,10 +431,6 @@ export default function Crm({
                               <Icon name="visit" size={14} />
                               <span title={`${item.work.neighborhood} · ${item.work.city}`}>{item.work.neighborhood} · {item.work.city}</span>
                             </p>
-                              <p className="crm-card-contact" title={item.work.architectName || item.work.contractorName || ""}>
-                                {item.work.architectName ||
-                                  item.work.contractorName}
-                              </p>
                             <div className="crm-product-chips">
                               {(active(item)
                                 ? item.pendingProducts
@@ -582,7 +564,7 @@ export default function Crm({
                       <Badge tone={item.stage === "won" ? "success" : ""}>
                         {labels[item.stage]}
                       </Badge>
-                      <span className="crm-origin">{item.sources?.includes("lead") && item.sources?.includes("visit") ? "Telefone + visita" : originLabel(item.source)}</span>
+                      <span className="crm-origin">{originLabel(item.source)}</span>
                       <button
                         className="crm-card-title"
                         onClick={() => open(item, "details")}
@@ -988,7 +970,7 @@ function CrmDialog({
       <div className="crm-detail-summary">
         <div>
           <Badge tone="blue">{labels[item.stage]}</Badge>
-          <Badge>{item.sources?.includes("lead") && item.sources?.includes("visit") ? "Telefone + visita" : originLabel(item.source)}</Badge>
+          <Badge>{originLabel(item.source)}</Badge>
           <p>{addressLabel(item.work)}</p>
           {item.work.responsible && (
             <p>
@@ -1010,18 +992,6 @@ function CrmDialog({
           <Icon name="visit" size={16} />
           Registrar visita
         </button>
-      </div>
-      <div className="crm-detail-contacts">
-        {item.work.architectName && (
-          <span>
-            Arquiteto <strong>{item.work.architectName}</strong>
-          </span>
-        )}
-        {item.work.contractorName && (
-          <span>
-            Empreiteiro <strong>{item.work.contractorName}</strong>
-          </span>
-        )}
       </div>
       <div className="crm-detail-actions">
         {active(item) ? (
@@ -1135,13 +1105,13 @@ function CrmDialog({
                       </option>
                     ))}
                 </Select>
-                {!account || ["admin", "supervisor"].includes(account.role)
+                {!account || account.role === "admin"
                   ? <Select
                       label="Vendedor responsável"
                       value={responsibleId}
                       onChange={setResponsible}
                     >
-                      {TEAM.filter((user) => !data.sellers || data.sellers.includes(user.id) || user.id === item.responsibleId).map((user) => (
+                      {TEAM.map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.name}
                         </option>
@@ -1158,7 +1128,7 @@ function CrmDialog({
                   value={nextAction}
                   maxLength={1000}
                   onChange={(event) => setNextAction(event.target.value)}
-                  placeholder="Ex.: enviar orçamento ao arquiteto"
+                  placeholder="Ex.: enviar orçamento ao cliente"
                 />
                 <Field
                   label="Data do próximo retorno"
@@ -1234,7 +1204,7 @@ function CrmDialog({
                 label="Quem realizou a venda"
                 value={seller}
                 onChange={setSeller}
-                disabled={!!account && !["admin", "supervisor"].includes(account.role)}
+                disabled={!!account && !account.role === "admin"}
               >
                 {TEAM.map((user) => (
                   <option key={user.id} value={user.id}>
@@ -1336,7 +1306,7 @@ function CrmDialog({
   );
 }
 function ProspectingContext({ opportunity, account }) {
-  const allowed = !account || ["admin", "supervisor"].includes(account.role) ||
+  const allowed = !account || account.role === "admin" ||
     account.teamId === opportunity.responsibleId;
   const key = `${opportunity.id}:${opportunity.version}`;
   const [result, setResult] = useState({ key: "", visits: null, error: "" });
@@ -1370,7 +1340,7 @@ function ProspectingContext({ opportunity, account }) {
         <article className="crm-prospecting-visit" key={visit.id}>
           <div className="crm-prospecting-visit-heading">
             <strong>{dateLabel(visit.date)}</strong>
-            <span>{contactOrigin(visit) === "lead" ? "Contato por telefone" : "Visita"} de {person(visit.userId)}</span>
+            <span>Visita de {person(visit.userId)}</span>
           </div>
           {!!visit.offered?.length && <div className="crm-prospecting-products">
             {visit.offered.map((product) => <Badge key={product} tone={visit.sold?.includes(product) ? "success" : "blue"}>
@@ -1389,8 +1359,7 @@ function eventLabel(event, labels = CRM_STAGES) {
   return (
     {
       created: "Oportunidade aberta",
-      visit: event.source === "lead" ? "Lead por telefone registrado" : "Visita registrada",
-      visit_deleted: "Visita excluída",
+      visit: "Visita registrada",
       deleted: "Cartão ocultado",
       restored: "Cartão restaurado",
       sale: "Venda registrada",
@@ -1406,157 +1375,3 @@ function eventLabel(event, labels = CRM_STAGES) {
   );
 }
 
-export function CrmSalesReport({ data, filters, team }) {
-  const sales = filterBusinessSales(
-    businessSales(data).filter((sale) =>
-      team.some((user) => user.id === sale.sellerTeamId),
-    ),
-    filters,
-  ).sort((a, b) => b.date.localeCompare(a.date));
-  const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [filters]);
-  const current = Math.min(page, Math.max(1, Math.ceil(sales.length / 10)));
-  const exportSales = () => {
-    const rows = [
-      [
-        "Data",
-        "Obra",
-        "Bairro",
-        "Cidade",
-        "Vendedor",
-        "Prospecção",
-        "Produtos vendidos",
-        "Valor",
-        "Origem",
-      ],
-      ...sales.map((sale) => [
-        dateLabel(sale.date),
-        sale.work.name,
-        sale.work.neighborhood,
-        sale.work.city,
-        person(sale.sellerTeamId),
-        person(sale.prospectorId),
-        sale.products.join(", "),
-        sale.value.toFixed(2).replace(".", ","),
-        `${originLabel(sale.source)} · ${sale.sourceVisitId ? "Registro vinculado" : "CRM"}`,
-      ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob(
-        ["\uFEFF" + rows.map((row) => row.map(csvCell).join(";")).join("\r\n")],
-        { type: "text/csv;charset=utf-8" },
-      ),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "luso-fechamentos.csv";
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-  return (
-    <section className="panel crm-sales-report">
-      <div className="panel-heading">
-        <div>
-          <h2>Fechamentos de vendas · CRM, visitas e leads</h2>
-          <p>
-            Cada venda aparece uma única vez. Os filtros acima se aplicam à data
-            da venda e ao vendedor.
-          </p>
-        </div>
-        <button
-          className="button secondary"
-          disabled={!sales.length}
-          onClick={exportSales}
-        >
-          <Icon name="download" size={16} />
-          Exportar vendas
-        </button>
-      </div>
-      <div className="crm-sales-totals">
-        <span>
-          <strong>{sales.length}</strong> fechamentos
-        </span>
-        <span>
-          <strong>
-            {money(sales.reduce((sum, sale) => sum + sale.value, 0))}
-          </strong>{" "}
-          vendidos
-        </span>
-        <span>
-          {sales.filter((sale) => !sale.sourceVisitId).length} registrados
-          diretamente no CRM
-        </span>
-      </div>
-      {sales.length ? (
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Data / obra</th>
-                <th>Origem</th>
-                <th>Produtos / bairro</th>
-                <th>Quem vendeu</th>
-                <th>Quem prospectou</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales.map((sale, index) => (
-                <tr
-                  key={sale.id}
-                  className={
-                    index < (current - 1) * 10 || index >= current * 10
-                      ? "crm-sale-outside-page"
-                      : ""
-                  }
-                >
-                  <td>
-                    <strong>{sale.work.name}</strong>
-                    <small>{dateLabel(sale.date)}</small>
-                  </td>
-                  <td>{originLabel(sale.source)}</td>
-                  <td>
-                    {sale.products.join(", ")}
-                    <small>
-                      {sale.work.neighborhood} · {sale.work.city}
-                    </small>
-                  </td>
-                  <td>{person(sale.sellerTeamId)}</td>
-                  <td>{person(sale.prospectorId)}</td>
-                  <td>{money(sale.value)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <Empty
-          title="Nenhum fechamento neste filtro"
-          description="Vendas registradas nas visitas ou no CRM aparecerão aqui."
-          icon="trend"
-        />
-      )}
-      {sales.length > 10 && (
-        <div className="crm-sales-pager">
-          <button
-            className="button secondary"
-            disabled={current === 1}
-            onClick={() => setPage(current - 1)}
-          >
-            Anterior
-          </button>
-          <span>
-            {current} de {Math.ceil(sales.length / 10)}
-          </span>
-          <button
-            className="button secondary"
-            disabled={current * 10 >= sales.length}
-            onClick={() => setPage(current + 1)}
-          >
-            Próxima
-          </button>
-        </div>
-      )}
-    </section>
-  );
-}

@@ -1,7 +1,6 @@
 .services-page { display: grid; gap: 22px; }
 .services-intro, .service-form-heading, .services-calendar-controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .services-intro p, .service-form-heading p { color: #7f9d8e; margin: 8px 0 0; font-size: 13px; line-height: 1.6; }
-.services-preview { display: inline-flex; align-items: center; gap: 7px; color: #5d8873; font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: 1.4px; }
 .services-metrics { margin: 0; }
 .services-workspace { min-width: 0; padding: 0; overflow: hidden; }
 .services-tabs { display: flex; gap: 8px; padding: 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -71,22 +70,6 @@
 .services-team-list > article { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); padding: 14px; border-radius: 9px; }
 .services-team-list strong { flex: 1; color: #3c6752; font-size: 13px; }
 .services-team-list small { display: block; margin-top: 5px; color: #90aa9d; font-size: 11px; font-weight: 400; }
-.service-history-page { padding: 22px; min-width: 0; }
-.service-history-page > .panel-heading { padding: 0 0 20px; }
-.service-history-summary { padding: 18px; background: #f5f9f7; border: 1px solid #e5ede9; border-radius: 10px; margin-bottom: 22px; color: #54816b; }
-.service-history-summary > strong { display: block; font-size: 16px; margin-bottom: 12px; color: #36654e; }
-.service-history-summary p { font-size: 12px; line-height: 1.7; margin: 12px 0 0; }
-.service-history-summary > small { display: flex; gap: 6px; align-items: center; margin-top: 10px; color: #447e6d; font-size: 11px; }
-.service-history-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.service-history-filters > .field:first-child { grid-column: span 2; }
-.service-history-filters .field { margin: 0; }
-.service-history-toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 20px 0; }
-.service-history-toolbar > label { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #759c89; }
-.service-history-total { font-size: 12px; color: #8baa9b; }
-.service-history-table { min-width: 850px; }
-.service-history-table td:nth-child(2) { max-width: 240px; }
-.service-history-description { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.service-history-original { padding: 18px; background: #f7f9f8; border-radius: 9px; color: #567d6a; white-space: pre-wrap; line-height: 1.8; font-size: 14px; overflow-wrap: anywhere; }
 .service-form > section { padding: 10px 0 22px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .service-form h3, .service-detail-section h3 { font-size: 15px; color: #2b6046; margin: 12px 0 18px; }
 .service-linked-sale { padding: 12px; border-radius: 8px; background: #edf6f3; color: #417765; display: flex; gap: 8px; align-items: center; font-size: 12px; line-height: 1.7; }
@@ -126,10 +109,6 @@
   .services-pending-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
-  .service-history-page { padding: 16px; }
-  .service-history-filters { grid-template-columns: minmax(0, 1fr); }
-  .service-history-filters > .field:first-child { grid-column: auto; }
-  .service-history-toolbar { align-items: start; flex-direction: column; }
   .services-intro, .service-form-heading { flex-direction: column; align-items: stretch; }
   .services-tabs { padding: 15px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .services-tabs .button { font-size: 11px; padding: 10px 8px; white-space: normal; }

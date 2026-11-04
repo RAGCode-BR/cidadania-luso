@@ -370,15 +370,6 @@
 .crm-card-address svg {
   flex-shrink: 0;
 }
-.crm-card-contact {
-  font-size: 10px;
-  color: #719282;
-  margin: 0;
-  overflow-wrap: anywhere;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 .crm-product-chips {
   display: flex;
   flex-wrap: wrap;
@@ -506,10 +497,7 @@
 .crm-mobile-tabs {
   display: none;
 }
-.crm-card-address,
-.crm-card-contact,
-.crm-card-next,
-.crm-card-next strong {
+.crm-card-address,.crm-card-next,.crm-card-next strong {
   font-size: 12px;
 }
 .crm-product-chips span,
@@ -546,22 +534,6 @@
   margin-top: 12px;
   font-size: 11px;
   color: #87a295;
-}
-.crm-detail-contacts {
-  display: flex;
-  gap: 25px;
-  flex-wrap: wrap;
-  margin: 15px 0;
-}
-.crm-detail-contacts span {
-  color: #8fa89c;
-  font-size: 11px;
-}
-.crm-detail-contacts strong {
-  display: block;
-  color: #466c59;
-  margin-top: 4px;
-  font-size: 12px;
 }
 .crm-detail-actions {
   display: flex;
@@ -733,70 +705,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.visit-crm-choice {
-  margin-top: 22px;
-  padding: 16px;
-  background: #f7f9f8;
-  border: 1px solid #e5ede9;
-  border-radius: 10px;
-}
-.visit-crm-choice > label {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13px;
-  font-weight: 650;
-  color: #3d6853;
-}
-.visit-crm-choice > label input {
-  accent-color: #bd1c37;
-}
-.visit-crm-choice > small {
-  display: block;
-  font-size: 11px;
-  color: #88a396;
-  line-height: 1.7;
-  margin: 8px 0;
-}
-.visit-crm-choice .field {
-  margin-top: 14px;
-}
-.crm-sales-report {
-  margin: 25px 0;
-}
-.crm-sales-totals {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-  flex-wrap: wrap;
-  margin: 0 25px 20px;
-  padding: 17px;
-  background: #f6f9f8;
-  border-radius: 10px;
-  font-size: 12px;
-  color: #81a091;
-}
-.crm-sales-totals strong {
-  color: #286848;
-  font-size: 19px;
-  display: block;
-  margin-bottom: 4px;
-}
-.crm-sales-report td small {
-  display: block;
-  color: #88a496;
-  font-size: 11px;
-  margin-top: 5px;
-}
-.crm-sales-pager {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  padding: 15px;
-  font-size: 12px;
-  color: #81a091;
-}
 dialog:has(.crm-timeline) > header > div {
   min-width: 0;
 }
@@ -932,8 +840,7 @@ dialog:has(.crm-timeline) h2 {
   .crm-product-chips span {
     font-size: 10px;
   }
-  .crm-card-address,
-  .crm-card-contact {
+  .crm-card-address {
     font-size: 12px;
   }
   .crm-card-owner > span:nth-child(2) {
@@ -959,13 +866,6 @@ dialog:has(.crm-timeline) h2 {
   .crm-product-options {
     grid-template-columns: 1fr;
   }
-  .crm-sales-totals {
-    margin: 0 16px 17px;
-    gap: 18px;
-  }
-  .crm-sales-report .panel-heading {
-    flex-wrap: wrap;
-  }
   .crm-metrics {
     gap: 12px;
   }
@@ -980,21 +880,7 @@ dialog:has(.crm-timeline) h2 {
     font-size: 23px;
   }
 }
-.crm-sale-outside-page {
-  display: none;
-}
-@media print {
-  .crm-sale-outside-page {
-    display: table-row;
-  }
-  .crm-sales-report .table-scroll {
-    overflow: visible;
-  }
-  .crm-sales-report button,
-  .crm-sales-pager {
-    display: none;
-  }
-}
+
 .crm-intro-actions { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: flex-end; }
 .crm-reorder-list {
   display: grid;
