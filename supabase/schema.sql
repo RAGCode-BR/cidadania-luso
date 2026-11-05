@@ -112,3 +112,21 @@ grant execute on function public.luso_is_admin() to authenticated;
 drop policy if exists "Administradores consultam a equipe" on public.luso_members;
 create policy "Administradores consultam a equipe" on public.luso_members
   for select to authenticated using ((select public.luso_is_admin()));
+
+-- Equipe visível para todos os membros ativos (apenas id e nome), usada para
+-- atribuir cartões do CRM a uma pessoa e filtrar por responsável.
+create or replace function public.luso_team()
+returns table (user_id uuid, display_name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select m.user_id, m.display_name from public.luso_members m
+  where m.active and exists (
+    select 1 from public.luso_members me where me.user_id = (select auth.uid()) and me.active
+  )
+  order by m.display_name;
+$$;
+revoke all on function public.luso_team() from public, anon;
+grant execute on function public.luso_team() to authenticated;

@@ -1,6 +1,18 @@
-export const TEAM = [
-  { id: "equipe", name: "Equipe Luso", initials: "LU" },
-];
+// Equipe que pode ser responsável por cartões. No modo local é a "Equipe Luso";
+// no modo compartilhado, os usuários ativos (carregados por setTeam).
+// "equipe" continua aceito como cartão sem responsável definido.
+export const UNASSIGNED = "equipe";
+const LOCAL_TEAM = [{ id: UNASSIGNED, name: "Equipe Luso" }];
+export const TEAM = [...LOCAL_TEAM];
+export function setTeam(members) {
+  const list = (members || []).filter((item) => item?.id && item?.name)
+    .map(({ id, name }) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  TEAM.splice(0, TEAM.length, ...(list.length ? list : LOCAL_TEAM));
+}
+export const isTeamMember = (id) => TEAM.some((item) => item.id === id);
+// Válido como responsável: alguém da equipe ou "sem responsável".
+export const validResponsible = (id) => id === UNASSIGNED || isTeamMember(id);
 export const DATA_VERSION = 2;
 export const emptyData = () => ({
   version: DATA_VERSION,
@@ -39,7 +51,8 @@ export const productNames = (data) =>
   catalogProducts(data).map((item) => item.name);
 export const uid = () => crypto.randomUUID();
 export const person = (id) =>
-  TEAM.find((item) => item.id === id)?.name || "Não informado";
+  TEAM.find((item) => item.id === id)?.name ||
+  (id === UNASSIGNED ? "Sem responsável" : "Usuário removido");
 
 // Cliente de uma oportunidade: só nome, telefone e e-mail.
 export const newClient = () => ({ name: "", phone: "", email: "" });

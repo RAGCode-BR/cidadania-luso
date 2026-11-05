@@ -1,4 +1,4 @@
-import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, DATA_VERSION, TEAM, emptyData, normalize, person, today, uid, validateClient } from "./domain.mjs";
+import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, DATA_VERSION, emptyData, normalize, person, today, uid, validResponsible, validateClient } from "./domain.mjs";
 
 export const CRM_STAGES = {
   prospecting: "Em prospecção",
@@ -77,13 +77,15 @@ export function changeCrmColumns(current, input, actor = { name: "Administraçã
   } else ensure(false, "Ação de coluna inválida.");
   return crm;
 }
-export function createCrmOpportunity(current, clientInput, actor, { stage, at = new Date().toISOString() } = {}) {
+export function createCrmOpportunity(current, clientInput, actor, { stage, responsibleId, at = new Date().toISOString() } = {}) {
   const crm = structuredClone(current || emptyCrm());
   stage ||= firstActiveStage(crm);
   ensure(crmActiveStageIds(crm).includes(stage), "Selecione uma coluna em andamento.");
+  responsibleId ||= actor.teamId;
+  ensure(team(responsibleId), "Selecione o usuário responsável.");
   const item = {
     id: uid(), client: validateClient(clientInput),
-    stage, responsibleId: actor.teamId,
+    stage, responsibleId,
     prospectorId: actor.teamId, products: [], pendingProducts: [],
     completedProducts: [], discardedProducts: [], cycle: 1,
     nextAction: "", nextDate: "", version: 1,
@@ -109,7 +111,7 @@ const ensure = (condition, message, status = 400) => {
     throw error;
   }
 };
-const team = (id) => TEAM.some((item) => item.id === id);
+const team = validResponsible;
 const dateValid = (value) =>
   typeof value === "string" &&
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -318,8 +320,13 @@ export function applyCrmAction(
   const note = text(input.note || "");
   const from = item.stage;
   if (input.type === "delete") {
+    ensure(note.length >= 5, "Explique por que o cartão está sendo excluído (pelo menos 5 caracteres).");
     item.deleted = true;
-    activity(crm, item, actor, "deleted", {}, at);
+    item.deletedAt = at;
+    item.deletedBy = actor.teamId || null;
+    item.deletedByName = actorLabel(actor);
+    item.deletedReason = note;
+    activity(crm, item, actor, "deleted", { note }, at);
   } else if (input.type === "sale") {
     ensure(
       !closed(item),

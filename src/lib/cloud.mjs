@@ -20,16 +20,24 @@ export async function signedInUser() {
 }
 
 // No CRM todos os membros têm acesso completo (role "admin"); isAdmin controla
-// apenas a gestão de usuários.
+// apenas a gestão de usuários. teamId é o próprio usuário: é quem fica
+// responsável pelos cartões que cria.
 export async function memberFor(user) {
   if (!user) return null;
   const { data, error } = await cloud.from("luso_members")
     .select("display_name, login, is_admin, must_change_password").eq("user_id", user.id).eq("active", true).maybeSingle();
   if (error) throw error;
   return data ? {
-    role: "admin", teamId: "equipe", name: data.display_name, userId: user.id, login: data.login,
+    role: "admin", teamId: user.id, name: data.display_name, userId: user.id, login: data.login,
     isAdmin: data.is_admin, mustChangePassword: data.must_change_password,
   } : null;
+}
+
+// Nomes da equipe ativa, visíveis para todos os membros (função luso_team).
+export async function listTeam() {
+  const { data, error } = await cloud.rpc("luso_team");
+  if (error) throw error;
+  return data.map((row) => ({ id: row.user_id, name: row.display_name }));
 }
 
 export async function listMembers() {

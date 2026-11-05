@@ -52,7 +52,7 @@ A importação não apaga o IndexedDB local. O banco limita o estado JSON a 10 M
 
 ## CRM
 
-Cada cartão do CRM é uma negociação com um **cliente** (nome obrigatório; telefone e e-mail opcionais). O mesmo cliente pode ter mais de um cartão. Em cada cartão a equipe registra **atendimentos** (data, forma de contato, tipo — prospecção, relacionamento ou fechamento —, produtos apresentados, produtos vendidos e anotações); um atendimento de fechamento registra a venda. Próximo passo, venda avulsa, encerramento e reabertura ficam nas ações do cartão.
+Cada cartão do CRM é uma negociação com um **cliente** (nome obrigatório; telefone e e-mail opcionais). O mesmo cliente pode ter mais de um cartão. Em cada cartão a equipe registra **atendimentos** (data, forma de contato, tipo — prospecção, relacionamento ou fechamento —, produtos apresentados, produtos vendidos e anotações); um atendimento de fechamento registra a venda. Próximo passo, venda avulsa, encerramento e reabertura ficam nas ações do cartão. Cada cartão tem um **responsável**: por padrão quem o criou, ou outro usuário escolhido na criação; administradores podem trocar o responsável ao atualizar o cartão. Para excluir um cartão é obrigatório informar o **motivo**; o sistema guarda quem excluiu, quando e por quê, e o cartão aparece na aba **Excluídos** do CRM com o histórico completo (cartões excluídos antes dessa regra aparecem sem motivo). O filtro **Usuário** do CRM mostra só os cartões de uma pessoa (ou os sem responsável, de antes desta regra). A lista de usuários para esse filtro vem da função `luso_team()` do banco, que mostra apenas id e nome dos membros ativos.
 
 ## Usuários
 

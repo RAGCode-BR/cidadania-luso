@@ -85,6 +85,23 @@ try {
   await dialog.getByRole("button", { name: "Adicionar cartão" }).click();
   await dialog.waitFor({ state: "hidden" });
   await page.locator(".crm-card", { hasText: "João Beta" }).getByText(/PISO VINÍLICO/).first().waitFor();
+  // Excluir exige motivo; o cartão vai para a aba Excluídos com quem, quando e por quê.
+  await page.getByRole("button", { name: "Excluir cartão João Beta" }).click();
+  const confirm = dialog.getByRole("button", { name: "Excluir cartão" });
+  assert.equal(await confirm.isDisabled(), true);
+  await dialog.getByLabel("Motivo da exclusão").fill("Cadastro duplicado do mesmo cliente.");
+  await confirm.click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await page.locator(".crm-card", { hasText: "João Beta" }).count(), 0);
+  await page.getByRole("button", { name: /Excluídos/ }).click();
+  const deleted = page.locator(".crm-deleted-row", { hasText: "João Beta" });
+  await deleted.getByText("Cadastro duplicado do mesmo cliente.").waitFor();
+  await deleted.getByText("Equipe Luso").first().waitFor();
+  await deleted.getByRole("button", { name: "Ver histórico de João Beta" }).click();
+  await dialog.getByRole("note").getByText(/Motivo: Cadastro duplicado/).waitFor();
+  assert.equal(await dialog.getByRole("button", { name: "Registrar atendimento" }).count(), 0);
+  await page.getByRole("button", { name: "Fechar janela" }).click();
+  await page.getByRole("button", { name: /Em andamento/ }).click();
   assert.deepEqual(errors, []);
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR" });
   const phone = await mobile.newPage();
@@ -94,7 +111,7 @@ try {
   await phone.getByRole("heading", { name: "Produtos", level: 1 }).waitFor();
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await mobile.close();
-  console.log("PASS: oportunidade, venda, atendimento, cadastro/edição/exclusão de produtos e persistência após recarga");
+  console.log("PASS: oportunidade, venda, atendimento, cadastro/edição/exclusão de produtos, exclusão de cartão com motivo e persistência após recarga");
 } catch (error) {
   await page.screenshot({ path: "test-results/luso-failure.png", fullPage: true }).catch(() => {});
   console.error("Erros da página:", errors);

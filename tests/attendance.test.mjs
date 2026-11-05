@@ -66,7 +66,7 @@ test("atendimento recusa dados inconsistentes", () => {
   assert.throws(() => attend(state, { offered: ["CIDADANIA ITALIANA"], sold: ["CIDADANIA ITALIANA"] }), /fechamento/);
   assert.throws(() => attend(state, { channel: "fax", offered: ["CIDADANIA ITALIANA"] }), /forma de contato/);
   assert.throws(() => attend(state, { date: "2999-01-01", offered: ["CIDADANIA ITALIANA"] }), /data/);
-  const crm = applyCrmAction(state.crm, state.crm.opportunities[0].id, { type: "delete", version: 1 }, actor, []);
+  const crm = applyCrmAction(state.crm, state.crm.opportunities[0].id, { type: "delete", version: 1, note: "Cadastro duplicado" }, actor, []);
   assert.throws(() => attend({ ...state, crm }, { offered: ["CIDADANIA ITALIANA"] }), /não está mais disponível/);
 });
 

@@ -5,16 +5,18 @@ import { Badge, Empty, Field, Icon, Modal, PageHeader, Summary } from "./ui.jsx"
 import "../products.css";
 import "../users.css";
 
-export default function Users({ actor, onSelfUpdated, onImportBackup }) {
+export default function Users({ actor, onSelfUpdated, onImportBackup, onTeamChanged }) {
   const [members, setMembers] = useState(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);
   const load = useCallback(() => listMembers().then(setMembers).catch((cause) => setError(cause.message)), []);
+  // Criar, editar ou excluir muda a lista de responsáveis do CRM.
+  const changed = useCallback(() => { load(); onTeamChanged?.(); }, [load, onTeamChanged]);
   useEffect(() => { load(); }, [load]);
   const list = members || [];
   const saved = (user) => {
-    load();
+    changed();
     if (user?.user_id === actor.userId) onSelfUpdated?.(user);
   };
   return <div className="products-page">
@@ -54,7 +56,7 @@ export default function Users({ actor, onSelfUpdated, onImportBackup }) {
     </section>
     {editing && <UserForm key={editing.userId || "new"} initial={editing} self={editing.userId === actor.userId} onClose={() => setEditing(null)} onSaved={saved}
       onDelete={() => { const row = list.find((item) => item.user_id === editing.userId); setEditing(null); if (row) setRemoving(row); }} />}
-    {removing && <DeleteUser member={removing} onClose={() => setRemoving(null)} onDeleted={load} />}
+    {removing && <DeleteUser member={removing} onClose={() => setRemoving(null)} onDeleted={changed} />}
   </div>;
 }
 

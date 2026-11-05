@@ -5,10 +5,10 @@ import Products from "./components/Products.jsx";
 import Users from "./components/Users.jsx";
 import { Field, Icon, Modal, Select } from "./components/ui.jsx";
 import { applyCrmAction, changeCrmColumns, createCrmOpportunity, recordAttendance } from "./lib/crm.mjs";
-import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, newAttendance, normalize, productName, productNames, today } from "./lib/domain.mjs";
+import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, newAttendance, normalize, productName, productNames, setTeam, today } from "./lib/domain.mjs";
 import { deleteProduct, ensureProducts, saveProduct } from "./lib/products.mjs";
 import { repository } from "./lib/repository.mjs";
-import { cloud, cloudEnabled, manageUsers, memberFor, signedInUser } from "./lib/cloud.mjs";
+import { cloud, cloudEnabled, listTeam, manageUsers, memberFor, signedInUser } from "./lib/cloud.mjs";
 import { authErrorMessage, loginEmail } from "./lib/login.mjs";
 import { PASSWORD_MAX, PASSWORD_MIN, validatePasswordChange } from "./lib/users.mjs";
 import "./base.css";
@@ -28,6 +28,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState("crm");
   const [attendanceTarget, setAttendanceTarget] = useState(null);
+  const [, setTeamTick] = useState(0);
   const queue = useRef(Promise.resolve());
   const accessKey = useRef(null);
   useEffect(() => {
@@ -60,13 +61,24 @@ function App() {
     const { data: listener } = cloud.auth.onAuthStateChange(() => { setTimeout(refresh, 0); });
     return () => { live = false; listener.subscription.unsubscribe(); };
   }, []);
+  // Equipe (responsáveis pelos cartões): carregada junto com os dados. Se a
+  // lista falhar, o próprio usuário continua podendo trabalhar.
+  const refreshTeam = useCallback(async () => {
+    if (!cloudEnabled || !actor) return;
+    try { setTeam(await listTeam()); }
+    catch { setTeam([{ id: actor.teamId, name: actor.name }]); }
+    setTeamTick((tick) => tick + 1);
+  }, [actor?.teamId, actor?.name]);
   useEffect(() => {
     if (!actor) return;
     let live = true;
-    repository.load().then((state) => { if (live) setData(state); }).catch((cause) => { if (live) setError(cause.message); });
-    const unsubscribe = repository.subscribe(() => repository.load().then((state) => { if (live) setData(state); }).catch((cause) => { if (live) setError(cause.message); }));
+    const loadAll = () => Promise.all([repository.load(), refreshTeam()])
+      .then(([state]) => { if (live) setData(state); })
+      .catch((cause) => { if (live) setError(cause.message); });
+    loadAll();
+    const unsubscribe = repository.subscribe(loadAll);
     return () => { live = false; unsubscribe(); };
-  }, [actor?.name]);
+  }, [actor?.name, refreshTeam]);
   const commit = useCallback((update) => {
     const next = queue.current.then(async () => {
       const current = await repository.load();
@@ -84,7 +96,7 @@ function App() {
     if (typed.some((name) => name.length > 80)) throw new Error("Cada produto deve ter até 80 caracteres.");
     const catalog = ensureProducts(current, typed);
     const names = catalog.names;
-    const crm = createCrmOpportunity(current.crm, draft.client, actor, { stage });
+    const crm = createCrmOpportunity(current.crm, draft.client, actor, { stage, responsibleId: draft.responsibleId });
     const item = crm.opportunities.at(-1);
     item.products = [...names];
     item.pendingProducts = [...names];
@@ -147,7 +159,7 @@ function App() {
       {error && <p className="error" role="alert">{error}</p>}
       {current === "crm" && <Crm data={data} actorId={actor.teamId} account={actor} onAction={crmAction} onCreate={createCard} onColumns={columns} onLabels={labels} onAttendance={setAttendanceTarget} />}
       {current === "products" && <Products data={data} onSave={saveProductDraft} onDelete={removeProduct} />}
-      {current === "users" && <Users actor={actor} onImportBackup={importBackup} onSelfUpdated={(user) => setActor((value) => ({ ...value, name: user.display_name, login: user.login }))} />}
+      {current === "users" && <Users actor={actor} onImportBackup={importBackup} onTeamChanged={refreshTeam} onSelfUpdated={(user) => setActor((value) => ({ ...value, name: user.display_name, login: user.login }))} />}
     </main>
     {attendanceTarget && <AttendanceCapture opportunity={attendanceTarget} catalog={productNames(data)} actor={actor} onClose={() => setAttendanceTarget(null)} onSave={saveAttendance} />}
   </div>;
