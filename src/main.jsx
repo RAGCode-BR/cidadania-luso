@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import Crm from "./components/Crm.jsx";
 import Products from "./components/Products.jsx";
 import Users from "./components/Users.jsx";
+import Reports from "./components/Reports.jsx";
 import { Field, Icon, Modal, Select } from "./components/ui.jsx";
 import { applyCrmAction, changeCrmColumns, createCrmOpportunity, recordAttendance } from "./lib/crm.mjs";
 import { ATTENDANCE_CHANNELS, ATTENDANCE_KINDS, newAttendance, normalize, productName, productNames, setTeam, today } from "./lib/domain.mjs";
@@ -18,6 +19,7 @@ const logoUrl = `${import.meta.env.BASE_URL}luso-logo.png`;
 const PAGES = [
   { id: "crm", label: "CRM", icon: "kanban" },
   { id: "products", label: "Produtos", icon: "passport" },
+  { id: "reports", label: "Relatórios", icon: "chart", admin: true },
   { id: "users", label: "Usuários", icon: "users", admin: true },
 ];
 function App() {
@@ -159,6 +161,7 @@ function App() {
       {error && <p className="error" role="alert">{error}</p>}
       {current === "crm" && <Crm data={data} actorId={actor.teamId} account={actor} onAction={crmAction} onCreate={createCard} onColumns={columns} onLabels={labels} onAttendance={setAttendanceTarget} />}
       {current === "products" && <Products data={data} onSave={saveProductDraft} onDelete={removeProduct} />}
+      {current === "reports" && <Reports data={data} actorId={actor.teamId} />}
       {current === "users" && <Users actor={actor} onImportBackup={importBackup} onTeamChanged={refreshTeam} onSelfUpdated={(user) => setActor((value) => ({ ...value, name: user.display_name, login: user.login }))} />}
     </main>
     {attendanceTarget && <AttendanceCapture opportunity={attendanceTarget} catalog={productNames(data)} actor={actor} onClose={() => setAttendanceTarget(null)} onSave={saveAttendance} />}

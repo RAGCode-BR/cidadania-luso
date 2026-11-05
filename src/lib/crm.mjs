@@ -276,6 +276,13 @@ export function recordAttendance(data, draft, actor, { id = uid(), at = new Date
   return { ...data, crm, attendances: [...(data.attendances || []), attendance] };
 }
 
+// Vendas que contam nos totais: as de cartões excluídos ficam de fora
+// (o CRM e os Relatórios usam a mesma regra).
+export function validSales(crm) {
+  const deleted = new Set((crm?.opportunities || []).filter((item) => item.deleted).map((item) => item.id));
+  return (crm?.sales || []).filter((sale) => !deleted.has(sale.opportunityId));
+}
+
 export const opportunityAttendances = (data, opportunityId) =>
   (data.attendances || [])
     .filter((item) => item.opportunityId === opportunityId)

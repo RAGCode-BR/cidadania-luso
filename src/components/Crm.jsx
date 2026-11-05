@@ -6,6 +6,7 @@ import {
   crmTimeline,
   emptyCrm,
   opportunityAttendances,
+  validSales,
 } from "../lib/crm.mjs";
 import {
   ATTENDANCE_CHANNELS,
@@ -167,7 +168,7 @@ export default function Crm({
         { label: "Em andamento", value: crm.opportunities.filter((item) => !item.deleted && active(item)).length },
         { label: "Em negociação", value: crm.opportunities.filter((item) => !item.deleted && active(item) && (item.stage === "negotiating" || item.completedProducts.length)).length },
         { label: "Retornos em atraso", value: overdueCount, tone: overdueCount ? "alert" : "" },
-        { label: "Total vendido", value: money(crm.sales.reduce((total, sale) => total + sale.value, 0)), tone: "strong" },
+        { label: "Total vendido", value: money(validSales(crm).reduce((total, sale) => total + sale.value, 0)), tone: "strong" },
       ]} />
       <section className="crm-workspace" aria-label="Quadro de oportunidades">
         <div
