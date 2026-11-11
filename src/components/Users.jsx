@@ -25,8 +25,9 @@ export default function Users({ actor, onSelfUpdated, onImportBackup, onTeamChan
       <button className="button primary" onClick={() => setEditing(newUserDraft())}><Icon name="plus" size={18} />Novo usuário</button>
     </PageHeader>
     <Summary label="Resumo dos usuários" items={[
-      { label: "Usuários", value: list.length },
-      { label: "Administradores", value: list.filter((row) => row.is_admin).length },
+      { label: "Ativos", value: list.filter((row) => row.active).length },
+      { label: "Inativos", value: list.filter((row) => !row.active).length },
+      { label: "Administradores ativos", value: list.filter((row) => row.is_admin && row.active).length },
       { label: "Aguardando primeiro acesso", value: list.filter((row) => row.must_change_password).length },
     ]} />
     <section className="panel products-panel">
@@ -40,6 +41,7 @@ export default function Users({ actor, onSelfUpdated, onImportBackup, onTeamChan
             <p>Login: {row.login || "—"}</p>
             <div className="users-badges">
               {row.user_id === actor.userId && <Badge tone="success">Você</Badge>}
+              <Badge tone={row.active ? "success" : "red"}>{row.active ? "Ativo" : "Inativo"}</Badge>
               {row.is_admin ? <Badge tone="blue">Administrador</Badge> : <Badge>Usuário</Badge>}
               {row.must_change_password && <Badge tone="red">Aguardando primeiro acesso</Badge>}
             </div>
@@ -99,6 +101,10 @@ function UserForm({ initial, self, onClose, onSaved, onDelete }) {
       <label className="users-admin-option">
         <input type="checkbox" checked={draft.isAdmin} disabled={self} onChange={(event) => setDraft((current) => ({ ...current, isAdmin: event.target.checked }))} />
         <span><strong>Administrador</strong><small>{self ? "Você não pode remover o próprio acesso de administrador." : "Pode acessar esta página e criar, editar ou excluir usuários."}</small></span>
+      </label>
+      <label className="users-admin-option">
+        <input type="checkbox" checked={draft.active} disabled={self} onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))} />
+        <span><strong>Acesso ativo</strong><small>{self ? "Você não pode desativar o próprio acesso." : "Desmarque para bloquear o acesso ao sistema. Reative esta opção para permitir a entrada novamente."}</small></span>
       </label>
       {editing && !self && <>
         <label className="users-admin-option">

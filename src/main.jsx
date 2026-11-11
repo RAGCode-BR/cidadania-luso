@@ -37,6 +37,26 @@ function App() {
     if (!cloudEnabled) return;
     let live = true;
     let sequence = 0;
+    let memberChannel = null;
+    let subscribedUserId = null;
+    const listenToMember = (nextUser) => {
+      if (subscribedUserId === nextUser?.id) return;
+      if (memberChannel) cloud.removeChannel(memberChannel);
+      subscribedUserId = nextUser?.id || null;
+      memberChannel = nextUser ? cloud.channel(`luso-member-${nextUser.id}`)
+        .on("postgres_changes", {
+          event: "UPDATE", schema: "public", table: "luso_members", filter: `user_id=eq.${nextUser.id}`,
+        }, (payload) => {
+          if (!live) return;
+          if (payload.new.active === false) {
+            sequence += 1;
+            accessKey.current = nextUser.id;
+            setData(null);
+            setActor(null);
+            setError("Sua conta está inativa. Peça a um administrador para reativar seu acesso.");
+          } else refresh();
+        }).subscribe() : null;
+    };
     const refresh = async () => {
       const current = ++sequence;
       try {
@@ -48,9 +68,10 @@ function App() {
           accessKey.current = nextKey;
           setData(null);
         }
+        listenToMember(nextUser);
         setUser(nextUser);
         setActor(nextActor);
-        setError(nextUser && !nextActor ? "Sua conta ainda não foi autorizada para a equipe Luso." : "");
+        setError(nextUser && !nextActor ? "Esta conta está inativa ou ainda não foi autorizada para a equipe Luso." : "");
       } catch (cause) {
         if (live && current === sequence) {
           accessKey.current = "";
@@ -61,7 +82,18 @@ function App() {
     };
     refresh();
     const { data: listener } = cloud.auth.onAuthStateChange(() => { setTimeout(refresh, 0); });
-    return () => { live = false; listener.subscription.unsubscribe(); };
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    const accessCheck = setInterval(refresh, 30000);
+    return () => {
+      live = false;
+      if (memberChannel) cloud.removeChannel(memberChannel);
+      listener.subscription.unsubscribe();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(accessCheck);
+    };
   }, []);
   // Equipe (responsáveis pelos cartões): carregada junto com os dados. Se a
   // lista falhar, o próprio usuário continua podendo trabalhar.
@@ -134,7 +166,7 @@ function App() {
   const navigate = (target) => { setPage(target); window.scrollTo({ top: 0 }); };
   if (!authReady) return <main className="status-screen" role="status">Verificando acesso…</main>;
   if (cloudEnabled && !user) return <Login />;
-  if (cloudEnabled && !actor) return <main className="status-screen"><h1>Acesso pendente</h1><p>{error || "Esta conta ainda não faz parte da equipe Luso. Peça acesso a um administrador."}</p><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></main>;
+  if (cloudEnabled && !actor) return <main className="status-screen"><h1>Acesso bloqueado</h1><p>{error || "Esta conta está inativa ou ainda não faz parte da equipe Luso. Peça acesso a um administrador."}</p><button className="button secondary" onClick={() => cloud.auth.signOut()}>Sair</button></main>;
   if (error && !data) return <main className="status-screen"><h1>Não foi possível abrir a Luso</h1><p>{error}</p><button className="button primary" onClick={() => location.reload()}>Tentar novamente</button></main>;
   if (cloudEnabled && actor.mustChangePassword) return <FirstAccess actor={actor} onDone={() => setActor((current) => ({ ...current, mustChangePassword: false }))} />;
   if (!data) return <main className="status-screen" role="status">Carregando CRM e Produtos…</main>;

@@ -74,7 +74,7 @@ $$;
 revoke all on function public.luso_save_workspace(bigint, jsonb) from public, anon, authenticated;
 grant execute on function public.luso_save_workspace(bigint, jsonb) to authenticated;
 
--- Para receber atualizações em outras abas e computadores.
+-- Para atualizar o CRM compartilhado e revogar acesso em sessões já abertas.
 do $$
 begin
   if not exists (
@@ -82,6 +82,12 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'luso_workspace'
   ) then
     alter publication supabase_realtime add table public.luso_workspace;
+  end if;
+  if not exists (
+    select 1 from pg_catalog.pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'luso_members'
+  ) then
+    alter publication supabase_realtime add table public.luso_members;
   end if;
 end $$;
 

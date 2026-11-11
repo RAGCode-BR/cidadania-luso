@@ -55,6 +55,11 @@ function checkName(value: unknown) {
   if (!name || name.length > 120) throw new Failure("Informe o nome do usuário (até 120 caracteres).");
   return name;
 }
+function checkActive(value: unknown, fallback: boolean) {
+  if (value === undefined) return fallback;
+  if (typeof value !== "boolean") throw new Failure("Informe um status de acesso válido.");
+  return value;
+}
 const duplicateLogin = (message: string) => /already|exists|registered/i.test(message);
 
 async function otherActiveAdmins(exceptId: string) {
@@ -68,6 +73,7 @@ async function createUser(input: Record<string, unknown>) {
   const login = checkLogin(input.login);
   const name = checkName(input.name);
   const password = checkPassword(input.password);
+  const active = checkActive(input.active, true);
   const { data, error } = await admin.auth.admin.createUser({
     email: `${login}@${LOGIN_DOMAIN}`, password, email_confirm: true, user_metadata: { display_name: name },
   });
@@ -75,7 +81,7 @@ async function createUser(input: Record<string, unknown>) {
     if (duplicateLogin(error.message)) throw new Failure("Já existe um usuário com esse login.", 409);
     throw error;
   }
-  const member = { user_id: data.user.id, display_name: name, login, is_admin: input.isAdmin === true, must_change_password: true, active: true };
+  const member = { user_id: data.user.id, display_name: name, login, is_admin: input.isAdmin === true, must_change_password: true, active };
   const { error: insertError } = await admin.from("luso_members").insert(member);
   if (insertError) {
     await admin.auth.admin.deleteUser(data.user.id);
@@ -100,16 +106,19 @@ async function deleteUser(self: { user_id: string }, input: Record<string, unkno
 // obriga a pessoa a criar outra senha no próximo acesso.
 async function updateUser(self: { user_id: string }, input: Record<string, unknown>) {
   const id = String(input.userId ?? "");
-  const { data: target, error } = await admin.from("luso_members").select("user_id, login, is_admin").eq("user_id", id).maybeSingle();
+  const { data: target, error } = await admin.from("luso_members").select("user_id, login, is_admin, active").eq("user_id", id).maybeSingle();
   if (error) throw error;
   if (!target) throw new Failure("Usuário não encontrado.", 404);
   const name = checkName(input.name);
   const login = checkLogin(input.login);
   const isAdmin = input.isAdmin === true;
+  const active = checkActive(input.active, target.active);
   const password = input.password ? checkPassword(input.password) : "";
   if (id === self.user_id && !isAdmin) throw new Failure("Você não pode remover o próprio acesso de administrador.");
+  if (id === self.user_id && !active) throw new Failure("Você não pode desativar a própria conta.");
   if (id === self.user_id && password) throw new Failure("Para trocar a sua própria senha, peça a outro administrador.");
-  if (target.is_admin && !isAdmin && (await otherActiveAdmins(id)) < 1) throw new Failure("Mantenha ao menos um administrador.");
+  if (target.is_admin && target.active && (!isAdmin || !active) && (await otherActiveAdmins(id)) < 1)
+    throw new Failure("Mantenha ao menos um administrador ativo.");
   const changes: Record<string, unknown> = {};
   if (login !== target.login) Object.assign(changes, { email: `${login}@${LOGIN_DOMAIN}`, email_confirm: true });
   if (password) changes.password = password;
@@ -120,10 +129,10 @@ async function updateUser(self: { user_id: string }, input: Record<string, unkno
       throw authError;
     }
   }
-  const member: Record<string, unknown> = { display_name: name, login, is_admin: isAdmin };
+  const member: Record<string, unknown> = { display_name: name, login, is_admin: isAdmin, active };
   if (password) member.must_change_password = true;
   const { data: updated, error: updateError } = await admin.from("luso_members").update(member).eq("user_id", id)
-    .select("user_id, display_name, login, is_admin, must_change_password").single();
+    .select("user_id, display_name, login, is_admin, must_change_password, active").single();
   if (updateError) throw updateError;
   return { user: updated };
 }
